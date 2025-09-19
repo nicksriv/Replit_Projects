@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { log } from "./vite";
 import { 
   insertCourseSchema, 
   updateCourseSchema, 
@@ -37,6 +38,30 @@ import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint for deployment monitoring
+  app.get("/health", async (req, res) => {
+    try {
+      // Test database connectivity by trying to get a simple count
+      await storage.getCourses();
+      
+      res.status(200).json({ 
+        status: "healthy",
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || "development"
+      });
+    } catch (error) {
+      log(`Health check failed: ${error}`);
+      res.status(503).json({ 
+        status: "unhealthy",
+        error: "Database connection failed",
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || "development"
+      });
+    }
+  });
+
   // Course Routes
   
   // Get all courses

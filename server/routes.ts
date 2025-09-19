@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCourseSchema, updateCourseSchema } from "@shared/schema";
+import { insertCourseSchema, updateCourseSchema, insertPayoutSchema, updatePayoutSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -95,6 +95,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete course" });
+    }
+  });
+
+  // Revenue Routes
+  app.get("/api/revenue", async (req, res) => {
+    try {
+      const instructorId = 1; // TODO: Get from session
+      const records = await storage.getRevenueRecords(instructorId);
+      res.json(records);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch revenue records" });
+    }
+  });
+
+  app.get("/api/revenue/total", async (req, res) => {
+    try {
+      const instructorId = 1; // TODO: Get from session
+      const total = await storage.getTotalRevenue(instructorId);
+      res.json({ total });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to calculate total revenue" });
+    }
+  });
+
+  app.get("/api/revenue/balance", async (req, res) => {
+    try {
+      const instructorId = 1; // TODO: Get from session
+      const balance = await storage.getAvailableBalance(instructorId);
+      res.json({ balance });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to calculate available balance" });
+    }
+  });
+
+  // Payout Routes
+  app.get("/api/payouts", async (req, res) => {
+    try {
+      const instructorId = 1; // TODO: Get from session
+      const payouts = await storage.getPayouts(instructorId);
+      res.json(payouts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch payouts" });
+    }
+  });
+
+  app.post("/api/payouts", async (req, res) => {
+    try {
+      const instructorId = 1; // TODO: Get from session
+      
+      const result = insertPayoutSchema.safeParse(req.body);
+      if (!result.success) {
+        const errorMessage = fromZodError(result.error);
+        return res.status(400).json({ error: errorMessage.toString() });
+      }
+
+      // Check if instructor has sufficient balance
+      const availableBalance = await storage.getAvailableBalance(instructorId);
+      const requestedAmount = parseFloat(result.data.amount);
+      
+      if (requestedAmount > availableBalance) {
+        return res.status(400).json({ 
+          error: `Insufficient balance. Available: $${availableBalance.toFixed(2)}, Requested: $${requestedAmount.toFixed(2)}` 
+        });
+      }
+
+      const payout = await storage.createPayout(result.data, instructorId);
+      res.status(201).json(payout);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create payout request" });
+    }
+  });
+
+  app.patch("/api/payouts/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid payout ID" });
+      }
+
+      const result = updatePayoutSchema.safeParse(req.body);
+      if (!result.success) {
+        const errorMessage = fromZodError(result.error);
+        return res.status(400).json({ error: errorMessage.toString() });
+      }
+
+      // Validate state transitions
+      const existingPayout = await storage.getPayouts(1); // TODO: Get instructorId from session
+      const currentPayout = existingPayout.find(p => p.id === id);
+      if (!currentPayout) {
+        return res.status(404).json({ error: "Payout not found" });
+      }
+
+      const validTransitions: Record<string, string[]> = {
+        "pending": ["processing", "failed"],
+        "processing": ["completed", "failed"],
+        "completed": [], // Terminal state
+        "failed": ["pending"], // Allow retry
+      };
+
+      const allowedStatuses = validTransitions[currentPayout.status || "pending"] || [];
+      if (!allowedStatuses.includes(result.data.status)) {
+        return res.status(400).json({ 
+          error: `Invalid status transition from ${currentPayout.status} to ${result.data.status}` 
+        });
+      }
+
+      const payout = await storage.updatePayoutStatus(id, result.data.status, result.data.notes);
+      res.json(payout);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update payout status" });
     }
   });
 

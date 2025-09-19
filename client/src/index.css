@@ -1,0 +1,401 @@
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .all-\[unset\] {
+    all: unset;
+  }
+}
+
+:root {
+  --drop-shadow-200: 0px 1px 4px 0px rgba(12, 12, 13, 0.05), 0px 1px 4px 0px
+    rgba(12, 12, 13, 0.1);
+  --heading-h1-bold-font-family: "Manrope", Helvetica;
+  --heading-h1-bold-font-size: 28px;
+  --heading-h1-bold-font-style: normal;
+  --heading-h1-bold-font-weight: 700;
+  --heading-h1-bold-letter-spacing: -0.5600000023841858px;
+  --heading-h1-bold-line-height: 32px;
+  --heading-h1-medium-font-family: "Manrope", Helvetica;
+  --heading-h1-medium-font-size: 28px;
+  --heading-h1-medium-font-style: normal;
+  --heading-h1-medium-font-weight: 500;
+  --heading-h1-medium-letter-spacing: -0.5600000023841858px;
+  --heading-h1-medium-line-height: 32px;
+  --heading-h2-bold-font-family: "Manrope", Helvetica;
+  --heading-h2-bold-font-size: 26px;
+  --heading-h2-bold-font-style: normal;
+  --heading-h2-bold-font-weight: 700;
+  --heading-h2-bold-letter-spacing: -0.25999999046325684px;
+  --heading-h2-bold-line-height: 30px;
+  --heading-h2-medium-font-family: "Manrope", Helvetica;
+  --heading-h2-medium-font-size: 26px;
+  --heading-h2-medium-font-style: normal;
+  --heading-h2-medium-font-weight: 500;
+  --heading-h2-medium-letter-spacing: -0.25999999046325684px;
+  --heading-h2-medium-line-height: 30px;
+  --heading-h3-bold-font-family: "Manrope", Helvetica;
+  --heading-h3-bold-font-size: 24px;
+  --heading-h3-bold-font-style: normal;
+  --heading-h3-bold-font-weight: 700;
+  --heading-h3-bold-letter-spacing: -0.23999999463558197px;
+  --heading-h3-bold-line-height: 28px;
+  --heading-h3-medium-font-family: "Manrope", Helvetica;
+  --heading-h3-medium-font-size: 24px;
+  --heading-h3-medium-font-style: normal;
+  --heading-h3-medium-font-weight: 500;
+  --heading-h3-medium-letter-spacing: -0.23999999463558197px;
+  --heading-h3-medium-line-height: 28px;
+  --heading-h4-bold-font-family: "Manrope", Helvetica;
+  --heading-h4-bold-font-size: 20px;
+  --heading-h4-bold-font-style: normal;
+  --heading-h4-bold-font-weight: 700;
+  --heading-h4-bold-letter-spacing: -0.20000000298023224px;
+  --heading-h4-bold-line-height: 24px;
+  --heading-h4-medium-font-family: "Manrope", Helvetica;
+  --heading-h4-medium-font-size: 20px;
+  --heading-h4-medium-font-style: normal;
+  --heading-h4-medium-font-weight: 500;
+  --heading-h4-medium-letter-spacing: -0.20000000298023224px;
+  --heading-h4-medium-line-height: 30px;
+  --label-label-1-medium-font-family: "Manrope", Helvetica;
+  --label-label-1-medium-font-size: 17px;
+  --label-label-1-medium-font-style: normal;
+  --label-label-1-medium-font-weight: 500;
+  --label-label-1-medium-letter-spacing: -0.18000000715255737px;
+  --label-label-1-medium-line-height: 24px;
+  --label-label-1-regular-font-family: "Manrope", Helvetica;
+  --label-label-1-regular-font-size: 17px;
+  --label-label-1-regular-font-style: normal;
+  --label-label-1-regular-font-weight: 400;
+  --label-label-1-regular-letter-spacing: -0.18000000715255737px;
+  --label-label-1-regular-line-height: 20px;
+  --label-label-1-semi-bold-font-family: "Manrope", Helvetica;
+  --label-label-1-semi-bold-font-size: 17px;
+  --label-label-1-semi-bold-font-style: normal;
+  --label-label-1-semi-bold-font-weight: 600;
+  --label-label-1-semi-bold-letter-spacing: -0.18000000715255737px;
+  --label-label-1-semi-bold-line-height: 20px;
+  --label-label-2-bold-font-family: "Manrope", Helvetica;
+  --label-label-2-bold-font-size: 15px;
+  --label-label-2-bold-font-style: normal;
+  --label-label-2-bold-font-weight: 700;
+  --label-label-2-bold-letter-spacing: -0.15999999642372134px;
+  --label-label-2-bold-line-height: 18px;
+  --label-label-2-medium-font-family: "Manrope", Helvetica;
+  --label-label-2-medium-font-size: 15px;
+  --label-label-2-medium-font-style: normal;
+  --label-label-2-medium-font-weight: 500;
+  --label-label-2-medium-letter-spacing: -0.15999999642372134px;
+  --label-label-2-medium-line-height: 18px;
+  --label-label-2-regular-font-family: "Manrope", Helvetica;
+  --label-label-2-regular-font-size: 15px;
+  --label-label-2-regular-font-style: normal;
+  --label-label-2-regular-font-weight: 400;
+  --label-label-2-regular-letter-spacing: -0.15999999642372134px;
+  --label-label-2-regular-line-height: 18px;
+  --label-label-2-semi-bold-font-family: "Manrope", Helvetica;
+  --label-label-2-semi-bold-font-size: 15px;
+  --label-label-2-semi-bold-font-style: normal;
+  --label-label-2-semi-bold-font-weight: 600;
+  --label-label-2-semi-bold-letter-spacing: -0.15999999642372134px;
+  --label-label-2-semi-bold-line-height: 18px;
+  --label-label-3-medium-font-family: "Manrope", Helvetica;
+  --label-label-3-medium-font-size: 13px;
+  --label-label-3-medium-font-style: normal;
+  --label-label-3-medium-font-weight: 500;
+  --label-label-3-medium-letter-spacing: -0.14000000059604642px;
+  --label-label-3-medium-line-height: 16px;
+  --label-label-3-regular-font-family: "Manrope", Helvetica;
+  --label-label-3-regular-font-size: 13px;
+  --label-label-3-regular-font-style: normal;
+  --label-label-3-regular-font-weight: 400;
+  --label-label-3-regular-letter-spacing: -0.14000000059604642px;
+  --label-label-3-regular-line-height: 18px;
+  --label-label-3-semi-bold-font-family: "Manrope", Helvetica;
+  --label-label-3-semi-bold-font-size: 13px;
+  --label-label-3-semi-bold-font-style: normal;
+  --label-label-3-semi-bold-font-weight: 600;
+  --label-label-3-semi-bold-letter-spacing: -0.14000000059604642px;
+  --label-label-3-semi-bold-line-height: 16px;
+  --label-label-4-medium-font-family: "Manrope", Helvetica;
+  --label-label-4-medium-font-size: 12px;
+  --label-label-4-medium-font-style: normal;
+  --label-label-4-medium-font-weight: 500;
+  --label-label-4-medium-letter-spacing: -0.11999999731779099px;
+  --label-label-4-medium-line-height: 20px;
+  --label-label-5-medium-font-family: "Manrope", Helvetica;
+  --label-label-5-medium-font-size: 11px;
+  --label-label-5-medium-font-style: normal;
+  --label-label-5-medium-font-weight: 500;
+  --label-label-5-medium-letter-spacing: -0.10000000149011612px;
+  --label-label-5-medium-line-height: 14px;
+  --light-themebase-colorswhite: rgba(255, 255, 255, 1);
+  --light-themetext-colorst2: rgba(217, 217, 217, 1);
+  --m-3syslighterror: rgba(179, 38, 30, 1);
+  --m-3syslightprimary: rgba(103, 80, 164, 1);
+  --m-3syslightsurface: rgba(254, 247, 255, 1);
+  --m-3white: rgba(255, 255, 255, 1);
+  --m3-body-large-font-family: "Roboto", Helvetica;
+  --m3-body-large-font-size: 16px;
+  --m3-body-large-font-style: normal;
+  --m3-body-large-font-weight: 400;
+  --m3-body-large-letter-spacing: 0.5px;
+  --m3-body-large-line-height: 24px;
+  --m3-elevation-light-4: 0px 2px 3px 0px rgba(0, 0, 0, 0.3), 0px 6px 10px 4px
+    rgba(0, 0, 0, 0.15);
+  --m3-label-large-font-family: "Roboto", Helvetica;
+  --m3-label-large-font-size: 14px;
+  --m3-label-large-font-style: normal;
+  --m3-label-large-font-weight: 500;
+  --m3-label-large-letter-spacing: 0.10000000149011612px;
+  --m3-label-large-line-height: 20px;
+  --m3-title-medium-font-family: "Roboto", Helvetica;
+  --m3-title-medium-font-size: 16px;
+  --m3-title-medium-font-style: normal;
+  --m3-title-medium-font-weight: 500;
+  --m3-title-medium-letter-spacing: 0.15000000596046448px;
+  --m3-title-medium-line-height: 24px;
+  --m3-title-small-font-family: "Roboto", Helvetica;
+  --m3-title-small-font-size: 14px;
+  --m3-title-small-font-style: normal;
+  --m3-title-small-font-weight: 500;
+  --m3-title-small-letter-spacing: 0.10000000149011612px;
+  --m3-title-small-line-height: 20px;
+  --m3syslighton-primary: rgba(255, 255, 255, 1);
+  --m3syslighton-surface: rgba(29, 27, 32, 1);
+  --m3syslighton-surface-variant: rgba(73, 69, 79, 1);
+  --m3syslightoutline-variant: rgba(202, 196, 208, 1);
+  --solid-coloraccenta1: rgba(214, 222, 255, 1);
+  --solid-coloraccenta2: rgba(126, 134, 193, 1);
+  --solid-coloraccenta3: rgba(237, 240, 255, 1);
+  --solid-coloractiondark-orange: rgba(251, 135, 54, 1);
+  --solid-coloractiondarkyellow: rgba(132, 85, 22, 1);
+  --solid-coloractionerror-light: rgba(251, 225, 225, 1);
+  --solid-coloractionlight-orange: rgba(255, 239, 231, 1);
+  --solid-coloractionlightyellow: rgba(254, 249, 195, 1);
+  --solid-coloractionsuccess-dark: rgba(6, 146, 62, 1);
+  --solid-coloractionsuccess-light: rgba(235, 247, 240, 1);
+  --solid-coloractionwarning-dark: rgba(255, 184, 35, 1);
+  --solid-coloractionwarning-light: rgba(255, 245, 222, 1);
+  --solid-colorbglight: rgba(245, 246, 248, 1);
+  --solid-colorbglight-2: rgba(249, 250, 251, 1);
+  --solid-colorlight-bg: rgba(245, 246, 248, 1);
+  --solid-colorlight-bg-2: rgba(249, 250, 251, 1);
+  --solid-colorprimary: rgba(3, 13, 132, 1);
+  --solid-colorsecondary: rgba(54, 113, 255, 1);
+  --text-colordark: rgba(138, 144, 156, 1);
+  --text-colordark-bg: rgba(75, 85, 99, 1);
+  --text-colorlight: rgba(189, 195, 205, 1);
+  --text-colorvery-dark: rgba(19, 24, 39, 1);
+  --text-colorvery-light: rgba(217, 217, 217, 1);
+  --text-colorwhite: rgba(255, 255, 255, 1);
+  --tiny-medium-font-family: "Manrope", Helvetica;
+  --tiny-medium-font-size: 10px;
+  --tiny-medium-font-style: normal;
+  --tiny-medium-font-weight: 500;
+  --tiny-medium-letter-spacing: 0px;
+  --tiny-medium-line-height: 12px;
+  --title-title-2-bold-font-family: "Manrope", Helvetica;
+  --title-title-2-bold-font-size: 40px;
+  --title-title-2-bold-font-style: normal;
+  --title-title-2-bold-font-weight: 700;
+  --title-title-2-bold-letter-spacing: -0.6399999856948853px;
+  --title-title-2-bold-line-height: 48px;
+  --title-title-3-bold-font-family: "Manrope", Helvetica;
+  --title-title-3-bold-font-size: 32px;
+  --title-title-3-bold-font-style: normal;
+  --title-title-3-bold-font-weight: 700;
+  --title-title-3-bold-letter-spacing: -0.6000000238418579px;
+  --title-title-3-bold-line-height: 36px;
+}
+
+:root {
+  --animate-spin: spin 1s linear infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 1s var(--animation-delay, 0s) ease forwards;
+}
+
+.animate-fade-up {
+  animation: fade-up 1s var(--animation-delay, 0s) ease forwards;
+}
+
+.animate-marquee {
+  animation: marquee var(--duration) infinite linear;
+}
+
+.animate-marquee-vertical {
+  animation: marquee-vertical var(--duration) linear infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 8s infinite;
+}
+
+.animate-spin {
+  animation: var(--animate-spin);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes image-glow {
+  0% {
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.74, 0.25, 0.76, 1);
+  }
+
+  10% {
+    opacity: 0.7;
+    animation-timing-function: cubic-bezier(0.12, 0.01, 0.08, 0.99);
+  }
+
+  to {
+    opacity: 0.4;
+  }
+}
+
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes shimmer {
+  0%,
+  90%,
+  to {
+    background-position: calc(-100% - var(--shimmer-width)) 0;
+  }
+
+  30%,
+  60% {
+    background-position: calc(100% + var(--shimmer-width)) 0;
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translate(0);
+  }
+
+  to {
+    transform: translateX(calc(-100% - var(--gap)));
+  }
+}
+
+@keyframes marquee-vertical {
+  0% {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(calc(-100% - var(--gap)));
+  }
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+
+    --card: transparent;
+    --card-foreground: 222.2 47.4% 11.2%;
+
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 210 40% 98%;
+
+    --ring: 215 20.2% 65.1%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+
+    --muted: 223 47% 11%;
+    --muted-foreground: 215.4 16.3% 56.9%;
+
+    --accent: 216 34% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --popover: 224 71% 4%;
+    --popover-foreground: 215 20.2% 65.1%;
+
+    --border: 216 34% 17%;
+    --input: 216 34% 17%;
+
+    --card: transparent;
+    --card-foreground: 213 31% 91%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 1.2%;
+
+    --secondary: 222.2 47.4% 11.2%;
+    --secondary-foreground: 210 40% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --ring: 216 34% 17%;
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}

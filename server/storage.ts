@@ -18,6 +18,10 @@ import {
   notificationSettings,
   instructorSettings,
   privacySettings,
+  documentationArticles,
+  faqEntries,
+  supportTickets,
+  ticketMessages,
   type User, 
   type InsertUser, 
   type PublicUser,
@@ -62,7 +66,18 @@ import {
   type UpdateInstructorSettings,
   type PrivacySettings,
   type InsertPrivacySettings,
-  type UpdatePrivacySettings
+  type UpdatePrivacySettings,
+  type DocumentationArticle,
+  type InsertDocumentationArticle,
+  type UpdateDocumentationArticle,
+  type FaqEntry,
+  type InsertFaqEntry,
+  type UpdateFaqEntry,
+  type SupportTicket,
+  type InsertSupportTicket,
+  type UpdateSupportTicket,
+  type TicketMessage,
+  type InsertTicketMessage
 } from "@shared/schema";
 
 // modify the interface with any CRUD methods
@@ -183,6 +198,37 @@ export interface IStorage {
   getPrivacySettings(userId: number): Promise<PrivacySettings | undefined>;
   createPrivacySettings(settings: InsertPrivacySettings, userId: number): Promise<PrivacySettings>;
   updatePrivacySettings(userId: number, updates: UpdatePrivacySettings): Promise<PrivacySettings | undefined>;
+  
+  // Help & Support - Documentation Articles
+  getDocumentationArticles(): Promise<DocumentationArticle[]>;
+  getDocumentationArticle(id: number): Promise<DocumentationArticle | undefined>;
+  getDocumentationArticlesByCategory(category: string): Promise<DocumentationArticle[]>;
+  createDocumentationArticle(article: InsertDocumentationArticle, authorId: number): Promise<DocumentationArticle>;
+  updateDocumentationArticle(id: number, updates: UpdateDocumentationArticle): Promise<DocumentationArticle | undefined>;
+  deleteDocumentationArticle(id: number): Promise<boolean>;
+  incrementArticleViews(id: number): Promise<void>;
+  rateArticleHelpful(id: number, helpful: boolean): Promise<void>;
+  
+  // Help & Support - FAQ Entries
+  getFaqEntries(): Promise<FaqEntry[]>;
+  getFaqEntry(id: number): Promise<FaqEntry | undefined>;
+  getFaqEntriesByCategory(category: string): Promise<FaqEntry[]>;
+  createFaqEntry(entry: InsertFaqEntry): Promise<FaqEntry>;
+  updateFaqEntry(id: number, updates: UpdateFaqEntry): Promise<FaqEntry | undefined>;
+  deleteFaqEntry(id: number): Promise<boolean>;
+  incrementFaqViews(id: number): Promise<void>;
+  rateFaqHelpful(id: number, helpful: boolean): Promise<void>;
+  
+  // Help & Support - Support Tickets
+  getSupportTickets(userId?: number): Promise<SupportTicket[]>;
+  getSupportTicket(id: number): Promise<SupportTicket | undefined>;
+  createSupportTicket(ticket: InsertSupportTicket, userId: number): Promise<SupportTicket>;
+  updateSupportTicket(id: number, updates: UpdateSupportTicket): Promise<SupportTicket | undefined>;
+  deleteSupportTicket(id: number): Promise<boolean>;
+  
+  // Help & Support - Ticket Messages
+  getTicketMessages(ticketId: number): Promise<TicketMessage[]>;
+  createTicketMessage(message: InsertTicketMessage, ticketId: number, userId: number, isFromSupport?: boolean): Promise<TicketMessage>;
 }
 
 export class MemStorage implements IStorage {
@@ -205,6 +251,10 @@ export class MemStorage implements IStorage {
   private notificationSettings: Map<number, NotificationSettings>;
   private instructorSettings: Map<number, InstructorSettings>;
   private privacySettings: Map<number, PrivacySettings>;
+  private documentationArticles: Map<number, DocumentationArticle>;
+  private faqEntries: Map<number, FaqEntry>;
+  private supportTickets: Map<number, SupportTicket>;
+  private ticketMessages: Map<number, TicketMessage>;
   private currentUserId: number;
   private currentCourseId: number;
   private currentRevenueId: number;
@@ -224,6 +274,10 @@ export class MemStorage implements IStorage {
   private currentNotificationSettingsId: number;
   private currentInstructorSettingsId: number;
   private currentPrivacySettingsId: number;
+  private currentDocumentationArticleId: number;
+  private currentFaqEntryId: number;
+  private currentSupportTicketId: number;
+  private currentTicketMessageId: number;
 
   constructor() {
     this.users = new Map();
@@ -245,6 +299,10 @@ export class MemStorage implements IStorage {
     this.notificationSettings = new Map();
     this.instructorSettings = new Map();
     this.privacySettings = new Map();
+    this.documentationArticles = new Map();
+    this.faqEntries = new Map();
+    this.supportTickets = new Map();
+    this.ticketMessages = new Map();
     this.currentUserId = 1;
     this.currentCourseId = 1;
     this.currentRevenueId = 1;
@@ -264,6 +322,10 @@ export class MemStorage implements IStorage {
     this.currentNotificationSettingsId = 1;
     this.currentInstructorSettingsId = 1;
     this.currentPrivacySettingsId = 1;
+    this.currentDocumentationArticleId = 1;
+    this.currentFaqEntryId = 1;
+    this.currentSupportTicketId = 1;
+    this.currentTicketMessageId = 1;
     
     // Add some sample data for demo
     this.seedSampleData();
@@ -1285,6 +1347,228 @@ export class MemStorage implements IStorage {
     };
     this.privacySettings.set(existing.id, updatedSettings);
     return updatedSettings;
+  }
+
+  // Help & Support - Documentation Articles methods
+  async getDocumentationArticles(): Promise<DocumentationArticle[]> {
+    return Array.from(this.documentationArticles.values())
+      .filter(article => article.isPublished)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getDocumentationArticle(id: number): Promise<DocumentationArticle | undefined> {
+    return this.documentationArticles.get(id);
+  }
+
+  async getDocumentationArticlesByCategory(category: string): Promise<DocumentationArticle[]> {
+    return Array.from(this.documentationArticles.values())
+      .filter(article => article.isPublished && article.category === category)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async createDocumentationArticle(insertArticle: InsertDocumentationArticle, authorId: number): Promise<DocumentationArticle> {
+    const id = this.currentDocumentationArticleId++;
+    const article: DocumentationArticle = {
+      ...insertArticle,
+      id,
+      authorId,
+      views: 0,
+      helpful: 0,
+      notHelpful: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.documentationArticles.set(id, article);
+    return article;
+  }
+
+  async updateDocumentationArticle(id: number, updates: UpdateDocumentationArticle): Promise<DocumentationArticle | undefined> {
+    const existing = this.documentationArticles.get(id);
+    if (!existing) return undefined;
+
+    const updatedArticle = { 
+      ...existing, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    this.documentationArticles.set(id, updatedArticle);
+    return updatedArticle;
+  }
+
+  async deleteDocumentationArticle(id: number): Promise<boolean> {
+    return this.documentationArticles.delete(id);
+  }
+
+  async incrementArticleViews(id: number): Promise<void> {
+    const article = this.documentationArticles.get(id);
+    if (article) {
+      article.views++;
+      this.documentationArticles.set(id, article);
+    }
+  }
+
+  async rateArticleHelpful(id: number, helpful: boolean): Promise<void> {
+    const article = this.documentationArticles.get(id);
+    if (article) {
+      if (helpful) {
+        article.helpful++;
+      } else {
+        article.notHelpful++;
+      }
+      this.documentationArticles.set(id, article);
+    }
+  }
+
+  // Help & Support - FAQ Entries methods
+  async getFaqEntries(): Promise<FaqEntry[]> {
+    return Array.from(this.faqEntries.values())
+      .filter(entry => entry.isPublished)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+  }
+
+  async getFaqEntry(id: number): Promise<FaqEntry | undefined> {
+    return this.faqEntries.get(id);
+  }
+
+  async getFaqEntriesByCategory(category: string): Promise<FaqEntry[]> {
+    return Array.from(this.faqEntries.values())
+      .filter(entry => entry.isPublished && entry.category === category)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+  }
+
+  async createFaqEntry(insertEntry: InsertFaqEntry): Promise<FaqEntry> {
+    const id = this.currentFaqEntryId++;
+    const entry: FaqEntry = {
+      ...insertEntry,
+      id,
+      views: 0,
+      helpful: 0,
+      notHelpful: 0,
+      orderIndex: insertEntry.orderIndex || 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.faqEntries.set(id, entry);
+    return entry;
+  }
+
+  async updateFaqEntry(id: number, updates: UpdateFaqEntry): Promise<FaqEntry | undefined> {
+    const existing = this.faqEntries.get(id);
+    if (!existing) return undefined;
+
+    const updatedEntry = { 
+      ...existing, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    this.faqEntries.set(id, updatedEntry);
+    return updatedEntry;
+  }
+
+  async deleteFaqEntry(id: number): Promise<boolean> {
+    return this.faqEntries.delete(id);
+  }
+
+  async incrementFaqViews(id: number): Promise<void> {
+    const entry = this.faqEntries.get(id);
+    if (entry) {
+      entry.views++;
+      this.faqEntries.set(id, entry);
+    }
+  }
+
+  async rateFaqHelpful(id: number, helpful: boolean): Promise<void> {
+    const entry = this.faqEntries.get(id);
+    if (entry) {
+      if (helpful) {
+        entry.helpful++;
+      } else {
+        entry.notHelpful++;
+      }
+      this.faqEntries.set(id, entry);
+    }
+  }
+
+  // Help & Support - Support Tickets methods
+  async getSupportTickets(userId?: number): Promise<SupportTicket[]> {
+    const tickets = Array.from(this.supportTickets.values());
+    if (userId) {
+      return tickets.filter(ticket => ticket.userId === userId)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    }
+    return tickets.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getSupportTicket(id: number): Promise<SupportTicket | undefined> {
+    return this.supportTickets.get(id);
+  }
+
+  async createSupportTicket(insertTicket: InsertSupportTicket, userId: number): Promise<SupportTicket> {
+    const id = this.currentSupportTicketId++;
+    const ticket: SupportTicket = {
+      ...insertTicket,
+      id,
+      userId,
+      assignedToId: null,
+      status: "open",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      resolvedAt: null,
+    };
+    this.supportTickets.set(id, ticket);
+    return ticket;
+  }
+
+  async updateSupportTicket(id: number, updates: UpdateSupportTicket): Promise<SupportTicket | undefined> {
+    const existing = this.supportTickets.get(id);
+    if (!existing) return undefined;
+
+    const updatedTicket = { 
+      ...existing, 
+      ...updates, 
+      updatedAt: new Date(),
+      resolvedAt: updates.status === "resolved" || updates.status === "closed" ? new Date() : existing.resolvedAt
+    };
+    this.supportTickets.set(id, updatedTicket);
+    return updatedTicket;
+  }
+
+  async deleteSupportTicket(id: number): Promise<boolean> {
+    // Also delete associated messages
+    const messages = Array.from(this.ticketMessages.values())
+      .filter(message => message.ticketId === id);
+    messages.forEach(message => this.ticketMessages.delete(message.id));
+    
+    return this.supportTickets.delete(id);
+  }
+
+  // Help & Support - Ticket Messages methods
+  async getTicketMessages(ticketId: number): Promise<TicketMessage[]> {
+    return Array.from(this.ticketMessages.values())
+      .filter(message => message.ticketId === ticketId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  async createTicketMessage(insertMessage: InsertTicketMessage, ticketId: number, userId: number, isFromSupport: boolean = false): Promise<TicketMessage> {
+    const id = this.currentTicketMessageId++;
+    const message: TicketMessage = {
+      ...insertMessage,
+      id,
+      ticketId,
+      userId,
+      isFromSupport,
+      createdAt: new Date(),
+    };
+    this.ticketMessages.set(id, message);
+    
+    // Update ticket's updatedAt when a new message is added
+    const ticket = this.supportTickets.get(ticketId);
+    if (ticket) {
+      ticket.updatedAt = new Date();
+      this.supportTickets.set(ticketId, ticket);
+    }
+    
+    return message;
   }
 }
 

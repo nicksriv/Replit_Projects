@@ -14,6 +14,7 @@ import { SkillsManagement } from "@/pages/SkillsManagement";
 import { Reports } from "@/pages/Reports";
 import Marketing from "@/pages/Marketing";
 import Settings from "@/pages/Settings";
+import HelpSupport from "@/pages/HelpSupport";
 
 function Router() {
   return (
@@ -31,7 +32,7 @@ function Router() {
       <Route path="/reports" component={Reports} />
       <Route path="/marketing" component={Marketing} />
       <Route path="/settings" component={Settings} />
-      <Route path="/help" component={() => <div data-testid="page-help">Help & Support - Coming Soon</div>} />
+      <Route path="/help" component={HelpSupport} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

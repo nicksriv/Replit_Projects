@@ -24,7 +24,14 @@ import {
   insertInstructorSettingsSchema,
   updateInstructorSettingsSchema,
   insertPrivacySettingsSchema,
-  updatePrivacySettingsSchema
+  updatePrivacySettingsSchema,
+  insertDocumentationArticleSchema,
+  updateDocumentationArticleSchema,
+  insertFaqEntrySchema,
+  updateFaqEntrySchema,
+  insertSupportTicketSchema,
+  updateSupportTicketSchema,
+  insertTicketMessageSchema
 } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
@@ -1043,6 +1050,354 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to update privacy settings" });
+    }
+  });
+
+  // Help & Support Routes
+
+  // Documentation Articles Routes
+  app.get("/api/documentation", async (req, res) => {
+    try {
+      const category = req.query.category as string;
+      let articles;
+      
+      if (category) {
+        articles = await storage.getDocumentationArticlesByCategory(category);
+      } else {
+        articles = await storage.getDocumentationArticles();
+      }
+      
+      res.json(articles);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch documentation articles" });
+    }
+  });
+
+  app.get("/api/documentation/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid article ID" });
+      }
+      
+      const article = await storage.getDocumentationArticle(id);
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+      
+      // Increment views when article is accessed
+      await storage.incrementArticleViews(id);
+      
+      res.json(article);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch article" });
+    }
+  });
+
+  app.post("/api/documentation", async (req, res) => {
+    try {
+      const authorId = 1; // TODO: Get from auth session
+      const validatedData = insertDocumentationArticleSchema.parse(req.body);
+      
+      const article = await storage.createDocumentationArticle(validatedData, authorId);
+      res.status(201).json(article);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create article" });
+    }
+  });
+
+  app.put("/api/documentation/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid article ID" });
+      }
+      
+      const validatedData = updateDocumentationArticleSchema.parse(req.body);
+      const article = await storage.updateDocumentationArticle(id, validatedData);
+      
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+      
+      res.json(article);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update article" });
+    }
+  });
+
+  app.delete("/api/documentation/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid article ID" });
+      }
+      
+      const success = await storage.deleteDocumentationArticle(id);
+      if (!success) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete article" });
+    }
+  });
+
+  app.post("/api/documentation/:id/rate", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid article ID" });
+      }
+      
+      const { helpful } = req.body;
+      if (typeof helpful !== "boolean") {
+        return res.status(400).json({ error: "helpful must be a boolean" });
+      }
+      
+      await storage.rateArticleHelpful(id, helpful);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to rate article" });
+    }
+  });
+
+  // FAQ Routes
+  app.get("/api/faq", async (req, res) => {
+    try {
+      const category = req.query.category as string;
+      let faqs;
+      
+      if (category) {
+        faqs = await storage.getFaqEntriesByCategory(category);
+      } else {
+        faqs = await storage.getFaqEntries();
+      }
+      
+      res.json(faqs);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch FAQ entries" });
+    }
+  });
+
+  app.get("/api/faq/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid FAQ ID" });
+      }
+      
+      const faq = await storage.getFaqEntry(id);
+      if (!faq) {
+        return res.status(404).json({ error: "FAQ not found" });
+      }
+      
+      // Increment views when FAQ is accessed
+      await storage.incrementFaqViews(id);
+      
+      res.json(faq);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch FAQ" });
+    }
+  });
+
+  app.post("/api/faq", async (req, res) => {
+    try {
+      const validatedData = insertFaqEntrySchema.parse(req.body);
+      const faq = await storage.createFaqEntry(validatedData);
+      res.status(201).json(faq);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create FAQ" });
+    }
+  });
+
+  app.put("/api/faq/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid FAQ ID" });
+      }
+      
+      const validatedData = updateFaqEntrySchema.parse(req.body);
+      const faq = await storage.updateFaqEntry(id, validatedData);
+      
+      if (!faq) {
+        return res.status(404).json({ error: "FAQ not found" });
+      }
+      
+      res.json(faq);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update FAQ" });
+    }
+  });
+
+  app.delete("/api/faq/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid FAQ ID" });
+      }
+      
+      const success = await storage.deleteFaqEntry(id);
+      if (!success) {
+        return res.status(404).json({ error: "FAQ not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete FAQ" });
+    }
+  });
+
+  app.post("/api/faq/:id/rate", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid FAQ ID" });
+      }
+      
+      const { helpful } = req.body;
+      if (typeof helpful !== "boolean") {
+        return res.status(400).json({ error: "helpful must be a boolean" });
+      }
+      
+      await storage.rateFaqHelpful(id, helpful);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to rate FAQ" });
+    }
+  });
+
+  // Support Tickets Routes
+  app.get("/api/support-tickets", async (req, res) => {
+    try {
+      const userId = 1; // TODO: Get from auth session
+      const tickets = await storage.getSupportTickets(userId);
+      res.json(tickets);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch support tickets" });
+    }
+  });
+
+  app.get("/api/support-tickets/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid ticket ID" });
+      }
+      
+      const ticket = await storage.getSupportTicket(id);
+      if (!ticket) {
+        return res.status(404).json({ error: "Ticket not found" });
+      }
+      
+      res.json(ticket);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch ticket" });
+    }
+  });
+
+  app.post("/api/support-tickets", async (req, res) => {
+    try {
+      const userId = 1; // TODO: Get from auth session
+      const validatedData = insertSupportTicketSchema.parse(req.body);
+      
+      const ticket = await storage.createSupportTicket(validatedData, userId);
+      res.status(201).json(ticket);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create support ticket" });
+    }
+  });
+
+  app.put("/api/support-tickets/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid ticket ID" });
+      }
+      
+      const validatedData = updateSupportTicketSchema.parse(req.body);
+      const ticket = await storage.updateSupportTicket(id, validatedData);
+      
+      if (!ticket) {
+        return res.status(404).json({ error: "Ticket not found" });
+      }
+      
+      res.json(ticket);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update ticket" });
+    }
+  });
+
+  app.delete("/api/support-tickets/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid ticket ID" });
+      }
+      
+      const success = await storage.deleteSupportTicket(id);
+      if (!success) {
+        return res.status(404).json({ error: "Ticket not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete ticket" });
+    }
+  });
+
+  // Ticket Messages Routes
+  app.get("/api/support-tickets/:ticketId/messages", async (req, res) => {
+    try {
+      const ticketId = parseInt(req.params.ticketId);
+      if (isNaN(ticketId)) {
+        return res.status(400).json({ error: "Invalid ticket ID" });
+      }
+      
+      const messages = await storage.getTicketMessages(ticketId);
+      res.json(messages);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch ticket messages" });
+    }
+  });
+
+  app.post("/api/support-tickets/:ticketId/messages", async (req, res) => {
+    try {
+      const ticketId = parseInt(req.params.ticketId);
+      if (isNaN(ticketId)) {
+        return res.status(400).json({ error: "Invalid ticket ID" });
+      }
+      
+      const userId = 1; // TODO: Get from auth session
+      const validatedData = insertTicketMessageSchema.parse(req.body);
+      
+      const message = await storage.createTicketMessage(validatedData, ticketId, userId, false);
+      res.status(201).json(message);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create message" });
     }
   });
 

@@ -664,3 +664,141 @@ export type UpdateInstructorSettings = z.infer<typeof updateInstructorSettingsSc
 export type InsertPrivacySettings = z.infer<typeof insertPrivacySettingsSchema>;
 export type PrivacySettings = typeof privacySettings.$inferSelect;
 export type UpdatePrivacySettings = z.infer<typeof updatePrivacySettingsSchema>;
+
+// Help & Support System
+
+// Documentation Articles (Knowledge Base)
+export const documentationArticles = pgTable("documentation_articles", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  category: text("category").notNull(), // getting_started, course_creation, payments, technical, etc.
+  tags: text("tags").array().default([]),
+  isPublished: boolean("is_published").default(true),
+  views: integer("views").default(0),
+  helpful: integer("helpful").default(0),
+  notHelpful: integer("not_helpful").default(0),
+  authorId: integer("author_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// FAQ System
+export const faqEntries = pgTable("faq_entries", {
+  id: serial("id").primaryKey(),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  category: text("category").notNull(), // general, payments, courses, technical, etc.
+  isPublished: boolean("is_published").default(true),
+  orderIndex: integer("order_index").default(0),
+  views: integer("views").default(0),
+  helpful: integer("helpful").default(0),
+  notHelpful: integer("not_helpful").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Support Tickets
+export const supportTickets = pgTable("support_tickets", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  subject: text("subject").notNull(),
+  description: text("description").notNull(),
+  category: text("category").notNull(), // technical, billing, course_issues, account, other
+  priority: text("priority").default("normal"), // low, normal, high, urgent
+  status: text("status").default("open"), // open, in_progress, waiting_response, resolved, closed
+  assignedToId: integer("assigned_to_id").references(() => users.id),
+  attachments: text("attachments").array().default([]), // file URLs
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+// Ticket Messages (for conversations)
+export const ticketMessages = pgTable("ticket_messages", {
+  id: serial("id").primaryKey(),
+  ticketId: integer("ticket_id").references(() => supportTickets.id),
+  userId: integer("user_id").references(() => users.id),
+  message: text("message").notNull(),
+  isFromSupport: boolean("is_from_support").default(false),
+  attachments: text("attachments").array().default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Help & Support Schemas
+export const insertDocumentationArticleSchema = createInsertSchema(documentationArticles).omit({
+  id: true,
+  authorId: true,
+  views: true,
+  helpful: true,
+  notHelpful: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  title: z.string().min(3, "Title must be at least 3 characters").max(200, "Title must be less than 200 characters"),
+  content: z.string().min(10, "Content must be at least 10 characters"),
+  category: z.string().min(1, "Category is required"),
+  tags: z.array(z.string()).optional(),
+});
+
+export const insertFaqEntrySchema = createInsertSchema(faqEntries).omit({
+  id: true,
+  views: true,
+  helpful: true,
+  notHelpful: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  question: z.string().min(5, "Question must be at least 5 characters").max(500, "Question must be less than 500 characters"),
+  answer: z.string().min(10, "Answer must be at least 10 characters"),
+  category: z.string().min(1, "Category is required"),
+  orderIndex: z.number().min(0).optional(),
+});
+
+export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({
+  id: true,
+  userId: true,
+  assignedToId: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+  resolvedAt: true,
+}).extend({
+  subject: z.string().min(3, "Subject must be at least 3 characters").max(200, "Subject must be less than 200 characters"),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  category: z.enum(["technical", "billing", "course_issues", "account", "other"], { required_error: "Category is required" }),
+  priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
+  attachments: z.array(z.string().url()).optional(),
+});
+
+export const insertTicketMessageSchema = createInsertSchema(ticketMessages).omit({
+  id: true,
+  userId: true,
+  ticketId: true,
+  isFromSupport: true,
+  createdAt: true,
+}).extend({
+  message: z.string().min(1, "Message cannot be empty"),
+  attachments: z.array(z.string().url()).optional(),
+});
+
+export const updateSupportTicketSchema = z.object({
+  status: z.enum(["open", "in_progress", "waiting_response", "resolved", "closed"]).optional(),
+  priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
+  assignedToId: z.number().optional(),
+});
+
+export const updateDocumentationArticleSchema = insertDocumentationArticleSchema.partial();
+export const updateFaqEntrySchema = insertFaqEntrySchema.partial();
+
+export type InsertDocumentationArticle = z.infer<typeof insertDocumentationArticleSchema>;
+export type DocumentationArticle = typeof documentationArticles.$inferSelect;
+export type UpdateDocumentationArticle = z.infer<typeof updateDocumentationArticleSchema>;
+export type InsertFaqEntry = z.infer<typeof insertFaqEntrySchema>;
+export type FaqEntry = typeof faqEntries.$inferSelect;
+export type UpdateFaqEntry = z.infer<typeof updateFaqEntrySchema>;
+export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
+export type SupportTicket = typeof supportTickets.$inferSelect;
+export type UpdateSupportTicket = z.infer<typeof updateSupportTicketSchema>;
+export type InsertTicketMessage = z.infer<typeof insertTicketMessageSchema>;
+export type TicketMessage = typeof ticketMessages.$inferSelect;

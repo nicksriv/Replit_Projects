@@ -319,3 +319,194 @@ export type InsertStudentSkillProgress = z.infer<typeof insertStudentSkillProgre
 export type StudentSkillProgress = typeof studentSkillProgress.$inferSelect;
 export type InsertSkillAttempt = z.infer<typeof insertSkillAttemptSchema>;
 export type SkillAttempt = typeof skillAttempts.$inferSelect;
+
+// Marketing Management
+export const marketingCampaigns = pgTable("marketing_campaigns", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull(), // email, social, paid_ads, content, referral
+  status: text("status").notNull().default("draft"), // draft, active, paused, completed, cancelled
+  targetAudience: text("target_audience"), // JSON string for audience criteria
+  budget: decimal("budget", { precision: 10, scale: 2 }),
+  actualSpend: decimal("actual_spend", { precision: 10, scale: 2 }).default("0"),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  goals: text("goals"), // JSON string for campaign goals and KPIs
+  instructorId: integer("instructor_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const promotionalCodes = pgTable("promotional_codes", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull(), // percentage, fixed_amount, free_shipping, buy_one_get_one
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(), // Discount value or percentage
+  minOrderAmount: decimal("min_order_amount", { precision: 10, scale: 2 }),
+  maxDiscount: decimal("max_discount", { precision: 10, scale: 2 }),
+  usageLimit: integer("usage_limit"), // Total usage limit
+  usageCount: integer("usage_count").default(0),
+  userUsageLimit: integer("user_usage_limit").default(1), // Per user limit
+  validFrom: timestamp("valid_from"),
+  validUntil: timestamp("valid_until"),
+  applicableCourses: text("applicable_courses").array(), // Course IDs or "all"
+  isActive: boolean("is_active").default(true),
+  campaignId: integer("campaign_id").references(() => marketingCampaigns.id),
+  instructorId: integer("instructor_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const campaignPerformance = pgTable("campaign_performance", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").notNull().references(() => marketingCampaigns.id),
+  date: timestamp("date").notNull(),
+  impressions: integer("impressions").default(0),
+  clicks: integer("clicks").default(0),
+  conversions: integer("conversions").default(0),
+  revenue: decimal("revenue", { precision: 10, scale: 2 }).default("0"),
+  cost: decimal("cost", { precision: 10, scale: 2 }).default("0"),
+  emailsSent: integer("emails_sent").default(0),
+  emailsOpened: integer("emails_opened").default(0),
+  emailsClicked: integer("emails_clicked").default(0),
+  socialShares: integer("social_shares").default(0),
+  socialEngagement: integer("social_engagement").default(0),
+  referrals: integer("referrals").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const emailCampaigns = pgTable("email_campaigns", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").references(() => marketingCampaigns.id),
+  subject: text("subject").notNull(),
+  content: text("content").notNull(), // HTML email content
+  recipientSegment: text("recipient_segment"), // JSON criteria for recipient selection
+  scheduledAt: timestamp("scheduled_at"),
+  sentAt: timestamp("sent_at"),
+  totalRecipients: integer("total_recipients").default(0),
+  delivered: integer("delivered").default(0),
+  bounced: integer("bounced").default(0),
+  opened: integer("opened").default(0),
+  clicked: integer("clicked").default(0),
+  unsubscribed: integer("unsubscribed").default(0),
+  status: text("status").default("draft"), // draft, scheduled, sending, sent, failed
+  instructorId: integer("instructor_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const socialMediaPosts = pgTable("social_media_posts", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").references(() => marketingCampaigns.id),
+  platform: text("platform").notNull(), // facebook, twitter, instagram, linkedin, youtube
+  content: text("content").notNull(),
+  mediaUrls: text("media_urls").array(), // Images, videos
+  hashtags: text("hashtags").array(),
+  scheduledAt: timestamp("scheduled_at"),
+  publishedAt: timestamp("published_at"),
+  externalPostId: text("external_post_id"), // Platform-specific post ID
+  likes: integer("likes").default(0),
+  comments: integer("comments").default(0),
+  shares: integer("shares").default(0),
+  clicks: integer("clicks").default(0),
+  reach: integer("reach").default(0),
+  impressions: integer("impressions").default(0),
+  status: text("status").default("draft"), // draft, scheduled, published, failed
+  instructorId: integer("instructor_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Marketing Schemas
+export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  instructorId: true,
+  actualSpend: true,
+}).extend({
+  name: z.string().min(3, "Campaign name must be at least 3 characters").max(100, "Campaign name must be less than 100 characters"),
+  description: z.string().max(500, "Description must be less than 500 characters").optional(),
+  type: z.enum(["email", "social", "paid_ads", "content", "referral"]),
+  status: z.enum(["draft", "active", "paused", "completed", "cancelled"]).optional(),
+  targetAudience: z.string().optional(),
+  budget: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0, "Budget must be a valid positive number").optional(),
+  goals: z.string().optional(),
+});
+
+export const insertPromotionalCodeSchema = createInsertSchema(promotionalCodes).omit({
+  id: true,
+  createdAt: true,
+  instructorId: true,
+  usageCount: true,
+}).extend({
+  code: z.string().min(3, "Code must be at least 3 characters").max(20, "Code must be less than 20 characters").regex(/^[A-Z0-9]+$/, "Code must contain only uppercase letters and numbers"),
+  name: z.string().min(3, "Name must be at least 3 characters").max(100, "Name must be less than 100 characters"),
+  description: z.string().max(500, "Description must be less than 500 characters").optional(),
+  type: z.enum(["percentage", "fixed_amount", "free_shipping", "buy_one_get_one"]),
+  value: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, "Value must be a valid positive number"),
+  minOrderAmount: z.string().refine((val) => val === "" || (!isNaN(Number(val)) && Number(val) >= 0), "Minimum order amount must be a valid positive number").optional(),
+  maxDiscount: z.string().refine((val) => val === "" || (!isNaN(Number(val)) && Number(val) > 0), "Maximum discount must be a valid positive number").optional(),
+  usageLimit: z.number().positive().optional(),
+  userUsageLimit: z.number().positive().optional(),
+  applicableCourses: z.array(z.string()).optional(),
+  isActive: z.boolean().optional(),
+  campaignId: z.number().positive().optional(),
+});
+
+export const insertEmailCampaignSchema = createInsertSchema(emailCampaigns).omit({
+  id: true,
+  createdAt: true,
+  instructorId: true,
+  sentAt: true,
+  totalRecipients: true,
+  delivered: true,
+  bounced: true,
+  opened: true,
+  clicked: true,
+  unsubscribed: true,
+  status: true,
+}).extend({
+  subject: z.string().min(5, "Subject must be at least 5 characters").max(200, "Subject must be less than 200 characters"),
+  content: z.string().min(10, "Content must be at least 10 characters"),
+  recipientSegment: z.string().optional(),
+  campaignId: z.number().positive().optional(),
+});
+
+export const insertSocialMediaPostSchema = createInsertSchema(socialMediaPosts).omit({
+  id: true,
+  createdAt: true,
+  instructorId: true,
+  publishedAt: true,
+  externalPostId: true,
+  likes: true,
+  comments: true,
+  shares: true,
+  clicks: true,
+  reach: true,
+  impressions: true,
+  status: true,
+}).extend({
+  platform: z.enum(["facebook", "twitter", "instagram", "linkedin", "youtube"]),
+  content: z.string().min(10, "Content must be at least 10 characters").max(2000, "Content must be less than 2000 characters"),
+  mediaUrls: z.array(z.string().url()).optional(),
+  hashtags: z.array(z.string()).optional(),
+  campaignId: z.number().positive().optional(),
+});
+
+export const updateMarketingCampaignSchema = insertMarketingCampaignSchema.partial();
+export const updatePromotionalCodeSchema = insertPromotionalCodeSchema.partial().omit({
+  code: true, // Never allow updating the code itself
+});
+
+export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
+export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
+export type UpdateMarketingCampaign = z.infer<typeof updateMarketingCampaignSchema>;
+export type InsertPromotionalCode = z.infer<typeof insertPromotionalCodeSchema>;
+export type PromotionalCode = typeof promotionalCodes.$inferSelect;
+export type UpdatePromotionalCode = z.infer<typeof updatePromotionalCodeSchema>;
+export type CampaignPerformance = typeof campaignPerformance.$inferSelect;
+export type InsertEmailCampaign = z.infer<typeof insertEmailCampaignSchema>;
+export type EmailCampaign = typeof emailCampaigns.$inferSelect;
+export type InsertSocialMediaPost = z.infer<typeof insertSocialMediaPostSchema>;
+export type SocialMediaPost = typeof socialMediaPosts.$inferSelect;

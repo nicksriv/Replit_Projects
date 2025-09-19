@@ -9,6 +9,11 @@ import {
   skillAssessments,
   studentSkillProgress,
   skillAttempts,
+  marketingCampaigns,
+  promotionalCodes,
+  campaignPerformance,
+  emailCampaigns,
+  socialMediaPosts,
   type User, 
   type InsertUser, 
   type PublicUser,
@@ -30,7 +35,18 @@ import {
   type StudentSkillProgress,
   type InsertStudentSkillProgress,
   type SkillAttempt,
-  type InsertSkillAttempt
+  type InsertSkillAttempt,
+  type MarketingCampaign,
+  type InsertMarketingCampaign,
+  type UpdateMarketingCampaign,
+  type PromotionalCode,
+  type InsertPromotionalCode,
+  type UpdatePromotionalCode,
+  type CampaignPerformance,
+  type EmailCampaign,
+  type InsertEmailCampaign,
+  type SocialMediaPost,
+  type InsertSocialMediaPost
 } from "@shared/schema";
 
 // modify the interface with any CRUD methods
@@ -95,6 +111,40 @@ export interface IStorage {
   getSkillAttempts(assessmentId: number): Promise<(SkillAttempt & { student: PublicUser })[]>;
   recordSkillAttempt(attempt: InsertSkillAttempt): Promise<SkillAttempt>;
   getStudentAttemptHistory(studentId: number, assessmentId: number): Promise<SkillAttempt[]>;
+  
+  // Marketing Campaign methods
+  getMarketingCampaigns(instructorId: number): Promise<MarketingCampaign[]>;
+  getMarketingCampaign(id: number): Promise<MarketingCampaign | undefined>;
+  createMarketingCampaign(campaign: InsertMarketingCampaign, instructorId: number): Promise<MarketingCampaign>;
+  updateMarketingCampaign(id: number, updates: UpdateMarketingCampaign): Promise<MarketingCampaign | undefined>;
+  deleteMarketingCampaign(id: number): Promise<boolean>;
+  
+  // Promotional Code methods
+  getPromotionalCodes(instructorId: number): Promise<PromotionalCode[]>;
+  getPromotionalCode(id: number): Promise<PromotionalCode | undefined>;
+  getPromotionalCodeByCode(code: string): Promise<PromotionalCode | undefined>;
+  createPromotionalCode(code: InsertPromotionalCode, instructorId: number): Promise<PromotionalCode>;
+  updatePromotionalCode(id: number, updates: UpdatePromotionalCode): Promise<PromotionalCode | undefined>;
+  deletePromotionalCode(id: number): Promise<boolean>;
+  incrementCodeUsage(id: number): Promise<PromotionalCode | undefined>;
+  
+  // Campaign Performance methods
+  getCampaignPerformance(campaignId: number): Promise<CampaignPerformance[]>;
+  recordCampaignPerformance(data: Omit<CampaignPerformance, 'id' | 'createdAt'>): Promise<CampaignPerformance>;
+  
+  // Email Campaign methods
+  getEmailCampaigns(instructorId: number): Promise<EmailCampaign[]>;
+  getEmailCampaign(id: number): Promise<EmailCampaign | undefined>;
+  createEmailCampaign(campaign: InsertEmailCampaign, instructorId: number): Promise<EmailCampaign>;
+  updateEmailCampaign(id: number, updates: Partial<EmailCampaign>): Promise<EmailCampaign | undefined>;
+  deleteEmailCampaign(id: number): Promise<boolean>;
+  
+  // Social Media Post methods
+  getSocialMediaPosts(instructorId: number): Promise<SocialMediaPost[]>;
+  getSocialMediaPost(id: number): Promise<SocialMediaPost | undefined>;
+  createSocialMediaPost(post: InsertSocialMediaPost, instructorId: number): Promise<SocialMediaPost>;
+  updateSocialMediaPost(id: number, updates: Partial<SocialMediaPost>): Promise<SocialMediaPost | undefined>;
+  deleteSocialMediaPost(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -108,6 +158,11 @@ export class MemStorage implements IStorage {
   private skillAssessments: Map<number, SkillAssessment>;
   private studentSkillProgress: Map<number, StudentSkillProgress>;
   private skillAttempts: Map<number, SkillAttempt>;
+  private marketingCampaigns: Map<number, MarketingCampaign>;
+  private promotionalCodes: Map<number, PromotionalCode>;
+  private campaignPerformance: Map<number, CampaignPerformance>;
+  private emailCampaigns: Map<number, EmailCampaign>;
+  private socialMediaPosts: Map<number, SocialMediaPost>;
   private currentUserId: number;
   private currentCourseId: number;
   private currentRevenueId: number;
@@ -118,6 +173,11 @@ export class MemStorage implements IStorage {
   private currentSkillAssessmentId: number;
   private currentStudentSkillProgressId: number;
   private currentSkillAttemptId: number;
+  private currentMarketingCampaignId: number;
+  private currentPromotionalCodeId: number;
+  private currentCampaignPerformanceId: number;
+  private currentEmailCampaignId: number;
+  private currentSocialMediaPostId: number;
 
   constructor() {
     this.users = new Map();
@@ -130,6 +190,11 @@ export class MemStorage implements IStorage {
     this.skillAssessments = new Map();
     this.studentSkillProgress = new Map();
     this.skillAttempts = new Map();
+    this.marketingCampaigns = new Map();
+    this.promotionalCodes = new Map();
+    this.campaignPerformance = new Map();
+    this.emailCampaigns = new Map();
+    this.socialMediaPosts = new Map();
     this.currentUserId = 1;
     this.currentCourseId = 1;
     this.currentRevenueId = 1;
@@ -140,6 +205,11 @@ export class MemStorage implements IStorage {
     this.currentSkillAssessmentId = 1;
     this.currentStudentSkillProgressId = 1;
     this.currentSkillAttemptId = 1;
+    this.currentMarketingCampaignId = 1;
+    this.currentPromotionalCodeId = 1;
+    this.currentCampaignPerformanceId = 1;
+    this.currentEmailCampaignId = 1;
+    this.currentSocialMediaPostId = 1;
     
     // Add some sample data for demo
     this.seedSampleData();
@@ -827,6 +897,202 @@ export class MemStorage implements IStorage {
     return Array.from(this.skillAttempts.values())
       .filter(attempt => attempt.studentId === studentId && attempt.assessmentId === assessmentId)
       .sort((a, b) => new Date(b.attemptedAt!).getTime() - new Date(a.attemptedAt!).getTime());
+  }
+
+  // Marketing Campaign methods
+  async getMarketingCampaigns(instructorId: number): Promise<MarketingCampaign[]> {
+    return Array.from(this.marketingCampaigns.values())
+      .filter(campaign => campaign.instructorId === instructorId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async getMarketingCampaign(id: number): Promise<MarketingCampaign | undefined> {
+    return this.marketingCampaigns.get(id);
+  }
+
+  async createMarketingCampaign(insertCampaign: InsertMarketingCampaign, instructorId: number): Promise<MarketingCampaign> {
+    const id = this.currentMarketingCampaignId++;
+    const campaign: MarketingCampaign = {
+      ...insertCampaign,
+      id,
+      instructorId,
+      actualSpend: "0",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.marketingCampaigns.set(id, campaign);
+    return campaign;
+  }
+
+  async updateMarketingCampaign(id: number, updates: UpdateMarketingCampaign): Promise<MarketingCampaign | undefined> {
+    const campaign = this.marketingCampaigns.get(id);
+    if (!campaign) return undefined;
+
+    const updatedCampaign = { ...campaign, ...updates, updatedAt: new Date() };
+    this.marketingCampaigns.set(id, updatedCampaign);
+    return updatedCampaign;
+  }
+
+  async deleteMarketingCampaign(id: number): Promise<boolean> {
+    return this.marketingCampaigns.delete(id);
+  }
+
+  // Promotional Code methods
+  async getPromotionalCodes(instructorId: number): Promise<PromotionalCode[]> {
+    return Array.from(this.promotionalCodes.values())
+      .filter(code => code.instructorId === instructorId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async getPromotionalCode(id: number): Promise<PromotionalCode | undefined> {
+    return this.promotionalCodes.get(id);
+  }
+
+  async getPromotionalCodeByCode(code: string): Promise<PromotionalCode | undefined> {
+    return Array.from(this.promotionalCodes.values())
+      .find(promo => promo.code === code && promo.isActive);
+  }
+
+  async createPromotionalCode(insertCode: InsertPromotionalCode, instructorId: number): Promise<PromotionalCode> {
+    const id = this.currentPromotionalCodeId++;
+    const promotionalCode: PromotionalCode = {
+      ...insertCode,
+      id,
+      instructorId,
+      usageCount: 0,
+      createdAt: new Date(),
+    };
+    this.promotionalCodes.set(id, promotionalCode);
+    return promotionalCode;
+  }
+
+  async updatePromotionalCode(id: number, updates: UpdatePromotionalCode): Promise<PromotionalCode | undefined> {
+    const code = this.promotionalCodes.get(id);
+    if (!code) return undefined;
+
+    const updatedCode = { ...code, ...updates };
+    this.promotionalCodes.set(id, updatedCode);
+    return updatedCode;
+  }
+
+  async deletePromotionalCode(id: number): Promise<boolean> {
+    return this.promotionalCodes.delete(id);
+  }
+
+  async incrementCodeUsage(id: number): Promise<PromotionalCode | undefined> {
+    const code = this.promotionalCodes.get(id);
+    if (!code) return undefined;
+
+    const updatedCode = { ...code, usageCount: code.usageCount + 1 };
+    this.promotionalCodes.set(id, updatedCode);
+    return updatedCode;
+  }
+
+  // Campaign Performance methods
+  async getCampaignPerformance(campaignId: number): Promise<CampaignPerformance[]> {
+    return Array.from(this.campaignPerformance.values())
+      .filter(performance => performance.campaignId === campaignId)
+      .sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime());
+  }
+
+  async recordCampaignPerformance(data: Omit<CampaignPerformance, 'id' | 'createdAt'>): Promise<CampaignPerformance> {
+    const id = this.currentCampaignPerformanceId++;
+    const performance: CampaignPerformance = {
+      ...data,
+      id,
+      createdAt: new Date(),
+    };
+    this.campaignPerformance.set(id, performance);
+    return performance;
+  }
+
+  // Email Campaign methods
+  async getEmailCampaigns(instructorId: number): Promise<EmailCampaign[]> {
+    return Array.from(this.emailCampaigns.values())
+      .filter(campaign => campaign.instructorId === instructorId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async getEmailCampaign(id: number): Promise<EmailCampaign | undefined> {
+    return this.emailCampaigns.get(id);
+  }
+
+  async createEmailCampaign(insertCampaign: InsertEmailCampaign, instructorId: number): Promise<EmailCampaign> {
+    const id = this.currentEmailCampaignId++;
+    const campaign: EmailCampaign = {
+      ...insertCampaign,
+      id,
+      instructorId,
+      totalRecipients: 0,
+      delivered: 0,
+      bounced: 0,
+      opened: 0,
+      clicked: 0,
+      unsubscribed: 0,
+      status: "draft",
+      sentAt: null,
+      createdAt: new Date(),
+    };
+    this.emailCampaigns.set(id, campaign);
+    return campaign;
+  }
+
+  async updateEmailCampaign(id: number, updates: Partial<EmailCampaign>): Promise<EmailCampaign | undefined> {
+    const campaign = this.emailCampaigns.get(id);
+    if (!campaign) return undefined;
+
+    const updatedCampaign = { ...campaign, ...updates };
+    this.emailCampaigns.set(id, updatedCampaign);
+    return updatedCampaign;
+  }
+
+  async deleteEmailCampaign(id: number): Promise<boolean> {
+    return this.emailCampaigns.delete(id);
+  }
+
+  // Social Media Post methods
+  async getSocialMediaPosts(instructorId: number): Promise<SocialMediaPost[]> {
+    return Array.from(this.socialMediaPosts.values())
+      .filter(post => post.instructorId === instructorId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async getSocialMediaPost(id: number): Promise<SocialMediaPost | undefined> {
+    return this.socialMediaPosts.get(id);
+  }
+
+  async createSocialMediaPost(insertPost: InsertSocialMediaPost, instructorId: number): Promise<SocialMediaPost> {
+    const id = this.currentSocialMediaPostId++;
+    const post: SocialMediaPost = {
+      ...insertPost,
+      id,
+      instructorId,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      clicks: 0,
+      reach: 0,
+      impressions: 0,
+      status: "draft",
+      publishedAt: null,
+      externalPostId: null,
+      createdAt: new Date(),
+    };
+    this.socialMediaPosts.set(id, post);
+    return post;
+  }
+
+  async updateSocialMediaPost(id: number, updates: Partial<SocialMediaPost>): Promise<SocialMediaPost | undefined> {
+    const post = this.socialMediaPosts.get(id);
+    if (!post) return undefined;
+
+    const updatedPost = { ...post, ...updates };
+    this.socialMediaPosts.set(id, updatedPost);
+    return updatedPost;
+  }
+
+  async deleteSocialMediaPost(id: number): Promise<boolean> {
+    return this.socialMediaPosts.delete(id);
   }
 }
 

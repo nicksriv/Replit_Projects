@@ -10,7 +10,13 @@ import {
   updateEnrollmentSchema,
   insertCommunicationSchema,
   insertSkillSchema,
-  insertSkillAssessmentSchema
+  insertSkillAssessmentSchema,
+  insertMarketingCampaignSchema,
+  updateMarketingCampaignSchema,
+  insertPromotionalCodeSchema,
+  updatePromotionalCodeSchema,
+  insertEmailCampaignSchema,
+  insertSocialMediaPostSchema
 } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
@@ -488,6 +494,258 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to create skill assessment" });
+    }
+  });
+
+  // Marketing Campaign Routes
+  app.get("/api/marketing-campaigns", async (req, res) => {
+    try {
+      const instructorId = 1; // TODO: Get from auth session
+      const campaigns = await storage.getMarketingCampaigns(instructorId);
+      res.json(campaigns);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch marketing campaigns" });
+    }
+  });
+
+  app.get("/api/marketing-campaigns/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid campaign ID" });
+      }
+
+      const campaign = await storage.getMarketingCampaign(id);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+
+      res.json(campaign);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch marketing campaign" });
+    }
+  });
+
+  app.post("/api/marketing-campaigns", async (req, res) => {
+    try {
+      const validatedData = insertMarketingCampaignSchema.parse(req.body);
+      const instructorId = 1; // TODO: Get from auth session
+      
+      const campaign = await storage.createMarketingCampaign(validatedData, instructorId);
+      res.status(201).json(campaign);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create marketing campaign" });
+    }
+  });
+
+  app.put("/api/marketing-campaigns/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid campaign ID" });
+      }
+
+      const validatedData = updateMarketingCampaignSchema.parse(req.body);
+      const campaign = await storage.updateMarketingCampaign(id, validatedData);
+      
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+
+      res.json(campaign);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update marketing campaign" });
+    }
+  });
+
+  app.delete("/api/marketing-campaigns/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid campaign ID" });
+      }
+
+      const deleted = await storage.deleteMarketingCampaign(id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete marketing campaign" });
+    }
+  });
+
+  // Promotional Code Routes
+  app.get("/api/promotional-codes", async (req, res) => {
+    try {
+      const instructorId = 1; // TODO: Get from auth session
+      const codes = await storage.getPromotionalCodes(instructorId);
+      res.json(codes);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch promotional codes" });
+    }
+  });
+
+  app.get("/api/promotional-codes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid promotional code ID" });
+      }
+
+      const code = await storage.getPromotionalCode(id);
+      if (!code) {
+        return res.status(404).json({ error: "Promotional code not found" });
+      }
+
+      res.json(code);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch promotional code" });
+    }
+  });
+
+  app.get("/api/promotional-codes/by-code/:code", async (req, res) => {
+    try {
+      const code = req.params.code;
+      const promoCode = await storage.getPromotionalCodeByCode(code);
+      
+      if (!promoCode) {
+        return res.status(404).json({ error: "Promotional code not found" });
+      }
+
+      res.json(promoCode);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch promotional code" });
+    }
+  });
+
+  app.post("/api/promotional-codes", async (req, res) => {
+    try {
+      const validatedData = insertPromotionalCodeSchema.parse(req.body);
+      const instructorId = 1; // TODO: Get from auth session
+      
+      const code = await storage.createPromotionalCode(validatedData, instructorId);
+      res.status(201).json(code);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create promotional code" });
+    }
+  });
+
+  app.put("/api/promotional-codes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid promotional code ID" });
+      }
+
+      const validatedData = updatePromotionalCodeSchema.parse(req.body);
+      const code = await storage.updatePromotionalCode(id, validatedData);
+      
+      if (!code) {
+        return res.status(404).json({ error: "Promotional code not found" });
+      }
+
+      res.json(code);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update promotional code" });
+    }
+  });
+
+  app.delete("/api/promotional-codes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid promotional code ID" });
+      }
+
+      const deleted = await storage.deletePromotionalCode(id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Promotional code not found" });
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete promotional code" });
+    }
+  });
+
+  // Campaign Performance Routes
+  app.get("/api/campaigns/:campaignId/performance", async (req, res) => {
+    try {
+      const campaignId = parseInt(req.params.campaignId);
+      if (isNaN(campaignId)) {
+        return res.status(400).json({ error: "Invalid campaign ID" });
+      }
+
+      const performance = await storage.getCampaignPerformance(campaignId);
+      res.json(performance);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch campaign performance" });
+    }
+  });
+
+  // Email Campaign Routes
+  app.get("/api/email-campaigns", async (req, res) => {
+    try {
+      const instructorId = 1; // TODO: Get from auth session
+      const campaigns = await storage.getEmailCampaigns(instructorId);
+      res.json(campaigns);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch email campaigns" });
+    }
+  });
+
+  app.post("/api/email-campaigns", async (req, res) => {
+    try {
+      const validatedData = insertEmailCampaignSchema.parse(req.body);
+      const instructorId = 1; // TODO: Get from auth session
+      
+      const campaign = await storage.createEmailCampaign(validatedData, instructorId);
+      res.status(201).json(campaign);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create email campaign" });
+    }
+  });
+
+  // Social Media Post Routes
+  app.get("/api/social-media-posts", async (req, res) => {
+    try {
+      const instructorId = 1; // TODO: Get from auth session
+      const posts = await storage.getSocialMediaPosts(instructorId);
+      res.json(posts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch social media posts" });
+    }
+  });
+
+  app.post("/api/social-media-posts", async (req, res) => {
+    try {
+      const validatedData = insertSocialMediaPostSchema.parse(req.body);
+      const instructorId = 1; // TODO: Get from auth session
+      
+      const post = await storage.createSocialMediaPost(validatedData, instructorId);
+      res.status(201).json(post);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create social media post" });
     }
   });
 

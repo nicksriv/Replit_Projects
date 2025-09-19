@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 
 import { ChloeMvpDash } from "@/pages/ChloeMvpDash";
 import { CreateCoursePage } from "@/pages/CreateCoursePage";
+import { MyCourses } from "@/pages/MyCourses";
 
 function Router() {
   return (
@@ -15,7 +16,9 @@ function Router() {
       <Route path="/" component={ChloeMvpDash} />
       <Route path="/search" component={() => <div data-testid="page-search">Search Results - Coming Soon</div>} />
       <Route path="/courses/new" component={CreateCoursePage} />
-      <Route path="/courses" component={() => <div data-testid="page-my-courses">My Courses - Coming Soon</div>} />
+      <Route path="/courses/:id/edit" component={() => <div data-testid="page-edit-course">Edit Course - Coming Soon</div>} />
+      <Route path="/courses/:id" component={() => <div data-testid="page-course-detail">Course Details - Coming Soon</div>} />
+      <Route path="/courses" component={MyCourses} />
       <Route path="/revenue" component={() => <div data-testid="page-revenue">Revenue & Payouts - Coming Soon</div>} />
       <Route path="/learners" component={() => <div data-testid="page-learners">Learner Management - Coming Soon</div>} />
       <Route path="/skills" component={() => <div data-testid="page-skills">Skills Management - Coming Soon</div>} />

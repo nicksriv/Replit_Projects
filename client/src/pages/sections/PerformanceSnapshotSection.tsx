@@ -52,6 +52,7 @@ export const PerformanceSnapshotSection = (): JSX.Element => {
         {performanceData.map((item, index) => (
           <Card
             key={index}
+            data-testid={`card-kpi-${item.label.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}`}
             className={`flex w-[247px] h-32 items-center gap-[25px] p-5 rounded-xl ${item.background} border-0 shadow-none`}
           >
             <CardContent className="flex items-center gap-[25px] p-0 w-full">
@@ -64,7 +65,10 @@ export const PerformanceSnapshotSection = (): JSX.Element => {
                   {item.label}
                 </div>
 
-                <div className="font-heading-h1-bold font-[number:var(--heading-h1-bold-font-weight)] text-[#202224] text-[length:var(--heading-h1-bold-font-size)] tracking-[var(--heading-h1-bold-letter-spacing)] leading-[var(--heading-h1-bold-line-height)] [font-style:var(--heading-h1-bold-font-style)]">
+                <div 
+                  data-testid={`text-kpi-value-${item.label.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}`}
+                  className="font-heading-h1-bold font-[number:var(--heading-h1-bold-font-weight)] text-[#202224] text-[length:var(--heading-h1-bold-font-size)] tracking-[var(--heading-h1-bold-letter-spacing)] leading-[var(--heading-h1-bold-line-height)] [font-style:var(--heading-h1-bold-font-style)]"
+                >
                   {item.value}
                 </div>
               </div>

@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const QuickActionsSection = (): JSX.Element => {
@@ -8,6 +9,7 @@ export const QuickActionsSection = (): JSX.Element => {
       icon: "/figmaAssets/main-icons-11.svg",
       isPrimary: true,
       className: "bg-solid-colorprimary text-text-colorwhite",
+      route: "/courses/new",
     },
     {
       title: "Add New User",
@@ -15,6 +17,7 @@ export const QuickActionsSection = (): JSX.Element => {
       isPrimary: false,
       className:
         "bg-text-colorwhite text-text-colorvery-dark border border-solid border-[#7e86c1]",
+      route: "/learners",
     },
     {
       title: "Schedule Live Session",
@@ -22,6 +25,7 @@ export const QuickActionsSection = (): JSX.Element => {
       isPrimary: false,
       className:
         "bg-text-colorwhite text-text-colorvery-dark border border-solid border-[#7e86c1]",
+      route: "/courses",
     },
     {
       title: "Launch Coupon",
@@ -29,6 +33,7 @@ export const QuickActionsSection = (): JSX.Element => {
       isPrimary: false,
       className:
         "bg-text-colorwhite text-text-colorvery-dark border border-solid border-[#7e86c1]",
+      route: "/marketing",
     },
   ];
 
@@ -41,24 +46,26 @@ export const QuickActionsSection = (): JSX.Element => {
 
         <div className="flex items-center gap-[25px] relative w-full">
           {quickActions.map((action, index) => (
-            <Card
-              key={index}
-              className={`flex flex-col w-[264px] h-24 items-center gap-[13px] p-2.5 relative rounded-xl cursor-pointer hover:opacity-90 transition-opacity ${action.className}`}
-            >
-              <CardContent className="flex flex-col items-center gap-[13px] p-0">
-                <img
-                  className={`relative flex-[0_0_auto] ${action.title === "Schedule Live Session" ? "w-10" : ""}`}
-                  alt="Main icons"
-                  src={action.icon}
-                />
+            <Link key={index} href={action.route}>
+              <Card
+                data-testid={`card-quick-action-${action.title.toLowerCase().replace(/\s+/g, '-')}`}
+                className={`flex flex-col w-[264px] h-24 items-center gap-[13px] p-2.5 relative rounded-xl cursor-pointer hover:opacity-90 transition-opacity ${action.className}`}
+              >
+                <CardContent className="flex flex-col items-center gap-[13px] p-0">
+                  <img
+                    className={`relative flex-[0_0_auto] ${action.title === "Schedule Live Session" ? "w-10" : ""}`}
+                    alt={`${action.title} icon`}
+                    src={action.icon}
+                  />
 
-                <div
-                  className={`relative w-fit font-label-label-2-medium font-[number:var(--label-label-2-medium-font-weight)] text-[length:var(--label-label-2-medium-font-size)] text-center tracking-[var(--label-label-2-medium-letter-spacing)] leading-[var(--label-label-2-medium-line-height)] whitespace-nowrap [font-style:var(--label-label-2-medium-font-style)] ${action.isPrimary ? "text-text-colorwhite" : "text-text-colorvery-dark"}`}
-                >
-                  {action.title}
-                </div>
-              </CardContent>
-            </Card>
+                  <div
+                    className={`relative w-fit font-label-label-2-medium font-[number:var(--label-label-2-medium-font-weight)] text-[length:var(--label-label-2-medium-font-size)] text-center tracking-[var(--label-label-2-medium-letter-spacing)] leading-[var(--label-label-2-medium-line-height)] whitespace-nowrap [font-style:var(--label-label-2-medium-font-style)] ${action.isPrimary ? "text-text-colorwhite" : "text-text-colorvery-dark"}`}
+                  >
+                    {action.title}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       </div>

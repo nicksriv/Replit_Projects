@@ -12,6 +12,16 @@ function Router() {
     <Switch>
       {/* Add pages below */}
       <Route path="/" component={ChloeMvpDash} />
+      <Route path="/search" component={() => <div data-testid="page-search">Search Results - Coming Soon</div>} />
+      <Route path="/courses/new" component={() => <div data-testid="page-create-course">Create New Course - Coming Soon</div>} />
+      <Route path="/courses" component={() => <div data-testid="page-my-courses">My Courses - Coming Soon</div>} />
+      <Route path="/revenue" component={() => <div data-testid="page-revenue">Revenue & Payouts - Coming Soon</div>} />
+      <Route path="/learners" component={() => <div data-testid="page-learners">Learner Management - Coming Soon</div>} />
+      <Route path="/skills" component={() => <div data-testid="page-skills">Skills Management - Coming Soon</div>} />
+      <Route path="/reports" component={() => <div data-testid="page-reports">Reports - Coming Soon</div>} />
+      <Route path="/marketing" component={() => <div data-testid="page-marketing">Marketing - Coming Soon</div>} />
+      <Route path="/settings" component={() => <div data-testid="page-settings">Settings - Coming Soon</div>} />
+      <Route path="/help" component={() => <div data-testid="page-help">Help & Support - Coming Soon</div>} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

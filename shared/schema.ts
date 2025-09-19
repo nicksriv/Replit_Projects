@@ -5,16 +5,22 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
+  email: text("email"),
   password: text("password").notNull(),
+  role: text("role").default("student"), // student, instructor, admin
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
+  email: true,
   password: true,
+  role: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type PublicUser = Omit<User, "password">;
 
 export const courses = pgTable("courses", {
   id: serial("id").primaryKey(),
@@ -115,3 +121,82 @@ export type RevenueRecord = typeof revenueRecords.$inferSelect;
 export type InsertPayout = z.infer<typeof insertPayoutSchema>;
 export type UpdatePayout = z.infer<typeof updatePayoutSchema>;
 export type Payout = typeof payouts.$inferSelect;
+
+// Learner Management
+export const enrollments = pgTable("enrollments", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").notNull().references(() => users.id),
+  courseId: integer("course_id").notNull().references(() => courses.id),
+  instructorId: integer("instructor_id").notNull().references(() => users.id),
+  enrolledAt: timestamp("enrolled_at").defaultNow(),
+  progress: decimal("progress", { precision: 5, scale: 2 }).default("0"), // Percentage 0-100
+  completedAt: timestamp("completed_at"),
+  lastActivityAt: timestamp("last_activity_at"),
+  status: text("status", { enum: ["active", "completed", "dropped", "suspended"] }).default("active"),
+  notes: text("notes"), // Instructor notes about the student
+});
+
+export const studentProgress = pgTable("student_progress", {
+  id: serial("id").primaryKey(),
+  enrollmentId: integer("enrollment_id").references(() => enrollments.id),
+  lessonId: text("lesson_id"), // Could reference lessons table if it existed
+  lessonTitle: text("lesson_title"),
+  progressType: text("progress_type", { enum: ["started", "completed", "quiz_passed", "assignment_submitted"] }),
+  completedAt: timestamp("completed_at").defaultNow(),
+  score: decimal("score", { precision: 5, scale: 2 }), // For quizzes/assignments
+  timeSpent: integer("time_spent"), // Minutes spent on lesson
+});
+
+export const studentCommunications = pgTable("student_communications", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => users.id),
+  instructorId: integer("instructor_id").references(() => users.id),
+  courseId: integer("course_id").references(() => courses.id),
+  subject: text("subject"),
+  message: text("message"),
+  type: text("type", { enum: ["announcement", "private_message", "feedback", "reminder"] }),
+  sentAt: timestamp("sent_at").defaultNow(),
+  readAt: timestamp("read_at"),
+});
+
+// Enrollment Schemas
+export const insertEnrollmentSchema = createInsertSchema(enrollments).omit({
+  id: true,
+  enrolledAt: true,
+  instructorId: true,
+}).extend({
+  studentId: z.number().positive("Student ID is required"),
+  courseId: z.number().positive("Course ID is required"),
+  progress: z.string().refine((val) => {
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= 0 && num <= 100;
+  }, "Progress must be between 0 and 100").optional(),
+  status: z.enum(["active", "completed", "dropped", "suspended"]).optional(),
+  notes: z.string().optional(),
+});
+
+export const updateEnrollmentSchema = insertEnrollmentSchema.partial().omit({
+  studentId: true,
+  courseId: true,
+});
+
+// Communication Schemas
+export const insertCommunicationSchema = createInsertSchema(studentCommunications).omit({
+  id: true,
+  sentAt: true,
+  readAt: true,
+  instructorId: true,
+}).extend({
+  studentId: z.number().positive("Student ID is required"),
+  courseId: z.number().positive("Course ID is required").optional(),
+  subject: z.string().min(1, "Subject is required").max(200, "Subject must be less than 200 characters"),
+  message: z.string().min(1, "Message is required").max(2000, "Message must be less than 2000 characters"),
+  type: z.enum(["announcement", "private_message", "feedback", "reminder"]),
+});
+
+export type InsertEnrollment = z.infer<typeof insertEnrollmentSchema>;
+export type UpdateEnrollment = z.infer<typeof updateEnrollmentSchema>;
+export type Enrollment = typeof enrollments.$inferSelect;
+export type StudentProgress = typeof studentProgress.$inferSelect;
+export type InsertCommunication = z.infer<typeof insertCommunicationSchema>;
+export type StudentCommunication = typeof studentCommunications.$inferSelect;

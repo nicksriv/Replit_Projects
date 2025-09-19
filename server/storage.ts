@@ -2,15 +2,23 @@ import {
   users, 
   courses, 
   revenueRecords, 
-  payouts, 
+  payouts,
+  enrollments,
+  studentCommunications,
   type User, 
   type InsertUser, 
+  type PublicUser,
   type Course, 
   type InsertCourse,
   type RevenueRecord,
   type InsertRevenueRecord,
   type Payout,
-  type InsertPayout
+  type InsertPayout,
+  type Enrollment,
+  type InsertEnrollment,
+  type UpdateEnrollment,
+  type StudentCommunication,
+  type InsertCommunication
 } from "@shared/schema";
 
 // modify the interface with any CRUD methods
@@ -39,6 +47,18 @@ export interface IStorage {
   createPayout(payout: InsertPayout, instructorId: number): Promise<Payout>;
   updatePayoutStatus(id: number, status: string, notes?: string): Promise<Payout | undefined>;
   getAvailableBalance(instructorId: number): Promise<number>;
+  
+  // Learner Management methods
+  getEnrollments(instructorId: number): Promise<(Enrollment & { student: PublicUser; course: Course })[]>;
+  getEnrollmentsByStudent(studentId: number): Promise<(Enrollment & { course: Course })[]>;
+  createEnrollment(enrollment: InsertEnrollment, instructorId: number): Promise<Enrollment>;
+  updateEnrollment(id: number, updates: UpdateEnrollment): Promise<Enrollment | undefined>;
+  deleteEnrollment(id: number): Promise<boolean>;
+  
+  // Student Communications
+  getCommunications(instructorId: number): Promise<(StudentCommunication & { student: PublicUser; course?: Course })[]>;
+  sendCommunication(communication: InsertCommunication, instructorId: number): Promise<StudentCommunication>;
+  markCommunicationAsRead(id: number): Promise<StudentCommunication | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -46,22 +66,30 @@ export class MemStorage implements IStorage {
   private courses: Map<number, Course>;
   private revenueRecords: Map<number, RevenueRecord>;
   private payouts: Map<number, Payout>;
+  private enrollments: Map<number, Enrollment>;
+  private communications: Map<number, StudentCommunication>;
   private currentUserId: number;
   private currentCourseId: number;
   private currentRevenueId: number;
   private currentPayoutId: number;
+  private currentEnrollmentId: number;
+  private currentCommunicationId: number;
 
   constructor() {
     this.users = new Map();
     this.courses = new Map();
     this.revenueRecords = new Map();
     this.payouts = new Map();
+    this.enrollments = new Map();
+    this.communications = new Map();
     this.currentUserId = 1;
     this.currentCourseId = 1;
     this.currentRevenueId = 1;
     this.currentPayoutId = 1;
+    this.currentEnrollmentId = 1;
+    this.currentCommunicationId = 1;
     
-    // Add some sample revenue data for demo
+    // Add some sample data for demo
     this.seedSampleData();
   }
   
@@ -127,6 +155,124 @@ export class MemStorage implements IStorage {
     this.payouts.set(1, samplePayout);
     this.currentRevenueId = 5;
     this.currentPayoutId = 2;
+    
+    // Sample students/users
+    const sampleStudents: User[] = [
+      {
+        id: 2,
+        username: "sarah_student",
+        email: "sarah@example.com",
+        role: "student",
+        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+      },
+      {
+        id: 3,
+        username: "mike_learner",
+        email: "mike@example.com", 
+        role: "student",
+        createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 days ago
+      },
+      {
+        id: 4,
+        username: "emma_dev",
+        email: "emma@example.com",
+        role: "student", 
+        createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000), // 45 days ago
+      }
+    ];
+    
+    sampleStudents.forEach(student => {
+      this.users.set(student.id, student);
+    });
+    
+    // Sample enrollments
+    const sampleEnrollments: Enrollment[] = [
+      {
+        id: 1,
+        studentId: 2,
+        courseId: 1, // Will be created when courses are added
+        instructorId: 1,
+        enrolledAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000), // 25 days ago
+        progress: "75.50",
+        completedAt: null,
+        lastActivityAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+        status: "active",
+        notes: "Excellent progress, very engaged student",
+      },
+      {
+        id: 2,
+        studentId: 3,
+        courseId: 1,
+        instructorId: 1,
+        enrolledAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000), // 12 days ago
+        progress: "45.25",
+        completedAt: null,
+        lastActivityAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        status: "active",
+        notes: "Needs additional support with advanced topics",
+      },
+      {
+        id: 3,
+        studentId: 4,
+        courseId: 1,
+        instructorId: 1,
+        enrolledAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000), // 40 days ago
+        progress: "100.00",
+        completedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+        lastActivityAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        status: "completed",
+        notes: "Completed with excellent scores, provided great feedback",
+      }
+    ];
+    
+    sampleEnrollments.forEach(enrollment => {
+      this.enrollments.set(enrollment.id, enrollment);
+    });
+    
+    // Sample communications
+    const sampleCommunications: StudentCommunication[] = [
+      {
+        id: 1,
+        studentId: 2,
+        instructorId: 1,
+        courseId: 1,
+        subject: "Great progress on Module 3!",
+        message: "Hi Sarah, I noticed you've been making excellent progress on the JavaScript fundamentals module. Your understanding of async/await is particularly impressive. Keep up the great work!",
+        type: "feedback",
+        sentAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+        readAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+      },
+      {
+        id: 2,
+        studentId: 3,
+        instructorId: 1,
+        courseId: 1,
+        subject: "Additional Resources for React Hooks",
+        message: "Hi Mike, I've noticed you might benefit from some additional practice with React Hooks. I've added some extra resources to the course materials that should help clarify the concepts. Feel free to reach out if you have any questions!",
+        type: "private_message",
+        sentAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        readAt: null,
+      },
+      {
+        id: 3,
+        studentId: 4,
+        instructorId: 1,
+        courseId: 1,
+        subject: "Congratulations on Course Completion!",
+        message: "Emma, congratulations on completing the Web Development course! Your final project was outstanding and showed real mastery of the concepts. I'd love to stay in touch and hear about your future projects.",
+        type: "feedback",
+        sentAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+        readAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000), // 4 days ago
+      }
+    ];
+    
+    sampleCommunications.forEach(communication => {
+      this.communications.set(communication.id, communication);
+    });
+    
+    this.currentUserId = 5;
+    this.currentEnrollmentId = 4;
+    this.currentCommunicationId = 4;
   }
 
   async getUser(id: number): Promise<User | undefined> {
@@ -269,6 +415,121 @@ export class MemStorage implements IStorage {
       .reduce((total, payout) => total + parseFloat(payout.amount || "0"), 0);
     
     return Math.max(0, totalRevenue - totalPayouts);
+  }
+
+  // Helper method to sanitize user data
+  private sanitizeUser(user: User): PublicUser {
+    const { password, ...publicUser } = user;
+    return publicUser;
+  }
+
+  // Learner Management methods
+  async getEnrollments(instructorId: number): Promise<(Enrollment & { student: PublicUser; course: Course })[]> {
+    const enrollments = Array.from(this.enrollments.values())
+      .filter(enrollment => enrollment.instructorId === instructorId)
+      .sort((a, b) => new Date(b.enrolledAt!).getTime() - new Date(a.enrolledAt!).getTime());
+      
+    return enrollments.map(enrollment => {
+      const student = this.users.get(enrollment.studentId);
+      const course = this.courses.get(enrollment.courseId);
+      return {
+        ...enrollment,
+        student: student ? this.sanitizeUser(student) : student!,
+        course: course!,
+      };
+    }).filter(item => item.student && item.course);
+  }
+
+  async getEnrollmentsByStudent(studentId: number): Promise<(Enrollment & { course: Course })[]> {
+    const enrollments = Array.from(this.enrollments.values())
+      .filter(enrollment => enrollment.studentId === studentId)
+      .sort((a, b) => new Date(b.enrolledAt!).getTime() - new Date(a.enrolledAt!).getTime());
+      
+    return enrollments.map(enrollment => {
+      const course = this.courses.get(enrollment.courseId);
+      return {
+        ...enrollment,
+        course: course!,
+      };
+    }).filter(item => item.course);
+  }
+
+  async createEnrollment(insertEnrollment: InsertEnrollment, instructorId: number): Promise<Enrollment> {
+    const id = this.currentEnrollmentId++;
+    const enrollment: Enrollment = {
+      ...insertEnrollment,
+      id,
+      instructorId,
+      enrolledAt: new Date(),
+      completedAt: null,
+      lastActivityAt: new Date(),
+      progress: insertEnrollment.progress || "0",
+      status: insertEnrollment.status || "active",
+    };
+    this.enrollments.set(id, enrollment);
+    return enrollment;
+  }
+
+  async updateEnrollment(id: number, updates: UpdateEnrollment): Promise<Enrollment | undefined> {
+    const enrollment = this.enrollments.get(id);
+    if (!enrollment) return undefined;
+    
+    const updatedEnrollment = { ...enrollment, ...updates };
+    
+    // Auto-complete if progress reaches 100%
+    if (updates.progress && parseFloat(updates.progress) >= 100 && !updatedEnrollment.completedAt) {
+      updatedEnrollment.completedAt = new Date();
+      updatedEnrollment.status = "completed";
+    }
+    
+    // Update last activity
+    updatedEnrollment.lastActivityAt = new Date();
+    
+    this.enrollments.set(id, updatedEnrollment);
+    return updatedEnrollment;
+  }
+
+  async deleteEnrollment(id: number): Promise<boolean> {
+    return this.enrollments.delete(id);
+  }
+
+  // Student Communications methods
+  async getCommunications(instructorId: number): Promise<(StudentCommunication & { student: PublicUser; course?: Course })[]> {
+    const communications = Array.from(this.communications.values())
+      .filter(comm => comm.instructorId === instructorId)
+      .sort((a, b) => new Date(b.sentAt!).getTime() - new Date(a.sentAt!).getTime());
+      
+    return communications.map(communication => {
+      const student = this.users.get(communication.studentId);
+      const course = communication.courseId ? this.courses.get(communication.courseId) : undefined;
+      return {
+        ...communication,
+        student: student ? this.sanitizeUser(student) : student!,
+        course,
+      };
+    }).filter(item => item.student);
+  }
+
+  async sendCommunication(insertCommunication: InsertCommunication, instructorId: number): Promise<StudentCommunication> {
+    const id = this.currentCommunicationId++;
+    const communication: StudentCommunication = {
+      ...insertCommunication,
+      id,
+      instructorId,
+      sentAt: new Date(),
+      readAt: null,
+    };
+    this.communications.set(id, communication);
+    return communication;
+  }
+
+  async markCommunicationAsRead(id: number): Promise<StudentCommunication | undefined> {
+    const communication = this.communications.get(id);
+    if (!communication) return undefined;
+    
+    const updatedCommunication = { ...communication, readAt: new Date() };
+    this.communications.set(id, updatedCommunication);
+    return updatedCommunication;
   }
 }
 

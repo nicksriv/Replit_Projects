@@ -5,6 +5,10 @@ import {
   payouts,
   enrollments,
   studentCommunications,
+  skills,
+  skillAssessments,
+  studentSkillProgress,
+  skillAttempts,
   type User, 
   type InsertUser, 
   type PublicUser,
@@ -18,7 +22,15 @@ import {
   type InsertEnrollment,
   type UpdateEnrollment,
   type StudentCommunication,
-  type InsertCommunication
+  type InsertCommunication,
+  type Skill,
+  type InsertSkill,
+  type SkillAssessment,
+  type InsertSkillAssessment,
+  type StudentSkillProgress,
+  type InsertStudentSkillProgress,
+  type SkillAttempt,
+  type InsertSkillAttempt
 } from "@shared/schema";
 
 // modify the interface with any CRUD methods
@@ -59,6 +71,30 @@ export interface IStorage {
   getCommunications(instructorId: number): Promise<(StudentCommunication & { student: PublicUser; course?: Course })[]>;
   sendCommunication(communication: InsertCommunication, instructorId: number): Promise<StudentCommunication>;
   markCommunicationAsRead(id: number): Promise<StudentCommunication | undefined>;
+  
+  // Skills Management methods
+  getSkills(instructorId: number): Promise<Skill[]>;
+  getSkill(id: number): Promise<Skill | undefined>;
+  createSkill(skill: InsertSkill, instructorId: number): Promise<Skill>;
+  updateSkill(id: number, updates: Partial<Skill>): Promise<Skill | undefined>;
+  deleteSkill(id: number): Promise<boolean>;
+  
+  // Skill Assessments
+  getSkillAssessments(skillId: number): Promise<SkillAssessment[]>;
+  getSkillAssessment(id: number): Promise<SkillAssessment | undefined>;
+  createSkillAssessment(assessment: InsertSkillAssessment, instructorId: number): Promise<SkillAssessment>;
+  updateSkillAssessment(id: number, updates: Partial<SkillAssessment>): Promise<SkillAssessment | undefined>;
+  deleteSkillAssessment(id: number): Promise<boolean>;
+  
+  // Student Skill Progress
+  getStudentSkillProgress(instructorId: number): Promise<(StudentSkillProgress & { student: PublicUser; skill: Skill })[]>;
+  getStudentSkillProgressByStudent(studentId: number): Promise<(StudentSkillProgress & { skill: Skill })[]>;
+  updateStudentSkillProgress(studentId: number, skillId: number, updates: Partial<StudentSkillProgress>, instructorId: number): Promise<StudentSkillProgress | undefined>;
+  
+  // Skill Attempts
+  getSkillAttempts(assessmentId: number): Promise<(SkillAttempt & { student: PublicUser })[]>;
+  recordSkillAttempt(attempt: InsertSkillAttempt): Promise<SkillAttempt>;
+  getStudentAttemptHistory(studentId: number, assessmentId: number): Promise<SkillAttempt[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -68,12 +104,20 @@ export class MemStorage implements IStorage {
   private payouts: Map<number, Payout>;
   private enrollments: Map<number, Enrollment>;
   private communications: Map<number, StudentCommunication>;
+  private skills: Map<number, Skill>;
+  private skillAssessments: Map<number, SkillAssessment>;
+  private studentSkillProgress: Map<number, StudentSkillProgress>;
+  private skillAttempts: Map<number, SkillAttempt>;
   private currentUserId: number;
   private currentCourseId: number;
   private currentRevenueId: number;
   private currentPayoutId: number;
   private currentEnrollmentId: number;
   private currentCommunicationId: number;
+  private currentSkillId: number;
+  private currentSkillAssessmentId: number;
+  private currentStudentSkillProgressId: number;
+  private currentSkillAttemptId: number;
 
   constructor() {
     this.users = new Map();
@@ -82,12 +126,20 @@ export class MemStorage implements IStorage {
     this.payouts = new Map();
     this.enrollments = new Map();
     this.communications = new Map();
+    this.skills = new Map();
+    this.skillAssessments = new Map();
+    this.studentSkillProgress = new Map();
+    this.skillAttempts = new Map();
     this.currentUserId = 1;
     this.currentCourseId = 1;
     this.currentRevenueId = 1;
     this.currentPayoutId = 1;
     this.currentEnrollmentId = 1;
     this.currentCommunicationId = 1;
+    this.currentSkillId = 1;
+    this.currentSkillAssessmentId = 1;
+    this.currentStudentSkillProgressId = 1;
+    this.currentSkillAttemptId = 1;
     
     // Add some sample data for demo
     this.seedSampleData();
@@ -162,13 +214,15 @@ export class MemStorage implements IStorage {
         id: 2,
         username: "sarah_student",
         email: "sarah@example.com",
+        password: "demo_password",
         role: "student",
         createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
       },
       {
         id: 3,
         username: "mike_learner",
-        email: "mike@example.com", 
+        email: "mike@example.com",
+        password: "demo_password", 
         role: "student",
         createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 days ago
       },
@@ -176,6 +230,7 @@ export class MemStorage implements IStorage {
         id: 4,
         username: "emma_dev",
         email: "emma@example.com",
+        password: "demo_password",
         role: "student", 
         createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000), // 45 days ago
       }
@@ -270,9 +325,86 @@ export class MemStorage implements IStorage {
       this.communications.set(communication.id, communication);
     });
     
+    // Sample skills data
+    const sampleSkills: Skill[] = [
+      {
+        id: 1,
+        name: "React Fundamentals",
+        description: "Understanding of core React concepts including components, hooks, and state management",
+        category: "technical",
+        level: "intermediate",
+        prerequisites: ["JavaScript", "HTML", "CSS"],
+        instructorId: 1,
+        isActive: true,
+        createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000), // 60 days ago
+      },
+      {
+        id: 2,
+        name: "Problem Solving",
+        description: "Ability to break down complex problems and develop systematic solutions",
+        category: "soft",
+        level: "advanced",
+        prerequisites: [],
+        instructorId: 1,
+        isActive: true,
+        createdAt: new Date(Date.now() - 50 * 24 * 60 * 60 * 1000),
+      },
+      {
+        id: 3,
+        name: "Node.js Backend Development",
+        description: "Server-side development with Node.js, Express, and database integration",
+        category: "technical",
+        level: "advanced",
+        prerequisites: ["JavaScript", "API Design"],
+        instructorId: 1,
+        isActive: true,
+        createdAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
+      }
+    ];
+
+    sampleSkills.forEach(skill => {
+      this.skills.set(skill.id, skill);
+    });
+
+    // Sample student skill progress
+    const sampleProgress: StudentSkillProgress[] = [
+      {
+        id: 1,
+        studentId: 2,
+        skillId: 1,
+        instructorId: 1,
+        currentLevel: "intermediate",
+        progressPercentage: "85.0",
+        assessmentsPassed: 2,
+        totalAssessments: 3,
+        lastActivityAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        skillAchievedAt: null,
+        notes: "Strong grasp of hooks, needs work on context API",
+      },
+      {
+        id: 2,
+        studentId: 3,
+        skillId: 1,
+        instructorId: 1,
+        currentLevel: "beginner",
+        progressPercentage: "45.0",
+        assessmentsPassed: 1,
+        totalAssessments: 3,
+        lastActivityAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+        skillAchievedAt: null,
+        notes: "Making steady progress, benefits from additional practice",
+      }
+    ];
+
+    sampleProgress.forEach(progress => {
+      this.studentSkillProgress.set(progress.id, progress);
+    });
+
     this.currentUserId = 5;
     this.currentEnrollmentId = 4;
     this.currentCommunicationId = 4;
+    this.currentSkillId = 4;
+    this.currentStudentSkillProgressId = 3;
   }
 
   async getUser(id: number): Promise<User | undefined> {
@@ -530,6 +662,171 @@ export class MemStorage implements IStorage {
     const updatedCommunication = { ...communication, readAt: new Date() };
     this.communications.set(id, updatedCommunication);
     return updatedCommunication;
+  }
+
+  // Skills Management methods
+  async getSkills(instructorId: number): Promise<Skill[]> {
+    return Array.from(this.skills.values())
+      .filter(skill => skill.instructorId === instructorId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async getSkill(id: number): Promise<Skill | undefined> {
+    return this.skills.get(id);
+  }
+
+  async createSkill(insertSkill: InsertSkill, instructorId: number): Promise<Skill> {
+    const id = this.currentSkillId++;
+    const skill: Skill = {
+      ...insertSkill,
+      id,
+      instructorId,
+      createdAt: new Date(),
+    };
+    this.skills.set(id, skill);
+    return skill;
+  }
+
+  async updateSkill(id: number, updates: Partial<Skill>): Promise<Skill | undefined> {
+    const skill = this.skills.get(id);
+    if (!skill) return undefined;
+
+    const updatedSkill = { ...skill, ...updates };
+    this.skills.set(id, updatedSkill);
+    return updatedSkill;
+  }
+
+  async deleteSkill(id: number): Promise<boolean> {
+    return this.skills.delete(id);
+  }
+
+  // Skill Assessments methods
+  async getSkillAssessments(skillId: number): Promise<SkillAssessment[]> {
+    return Array.from(this.skillAssessments.values())
+      .filter(assessment => assessment.skillId === skillId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async getSkillAssessment(id: number): Promise<SkillAssessment | undefined> {
+    return this.skillAssessments.get(id);
+  }
+
+  async createSkillAssessment(insertAssessment: InsertSkillAssessment, instructorId: number): Promise<SkillAssessment> {
+    const id = this.currentSkillAssessmentId++;
+    const assessment: SkillAssessment = {
+      ...insertAssessment,
+      id,
+      instructorId,
+      createdAt: new Date(),
+    };
+    this.skillAssessments.set(id, assessment);
+    return assessment;
+  }
+
+  async updateSkillAssessment(id: number, updates: Partial<SkillAssessment>): Promise<SkillAssessment | undefined> {
+    const assessment = this.skillAssessments.get(id);
+    if (!assessment) return undefined;
+
+    const updatedAssessment = { ...assessment, ...updates };
+    this.skillAssessments.set(id, updatedAssessment);
+    return updatedAssessment;
+  }
+
+  async deleteSkillAssessment(id: number): Promise<boolean> {
+    return this.skillAssessments.delete(id);
+  }
+
+  // Student Skill Progress methods
+  async getStudentSkillProgress(instructorId: number): Promise<(StudentSkillProgress & { student: PublicUser; skill: Skill })[]> {
+    const progress = Array.from(this.studentSkillProgress.values())
+      .filter(progress => progress.instructorId === instructorId)
+      .sort((a, b) => new Date(b.lastActivityAt!).getTime() - new Date(a.lastActivityAt!).getTime());
+      
+    return progress.map(progress => {
+      const student = this.users.get(progress.studentId);
+      const skill = this.skills.get(progress.skillId);
+      return {
+        ...progress,
+        student: student ? this.sanitizeUser(student) : student!,
+        skill: skill!,
+      };
+    }).filter(item => item.student && item.skill);
+  }
+
+  async getStudentSkillProgressByStudent(studentId: number): Promise<(StudentSkillProgress & { skill: Skill })[]> {
+    const progress = Array.from(this.studentSkillProgress.values())
+      .filter(progress => progress.studentId === studentId)
+      .sort((a, b) => new Date(b.lastActivityAt!).getTime() - new Date(a.lastActivityAt!).getTime());
+      
+    return progress.map(progress => {
+      const skill = this.skills.get(progress.skillId);
+      return {
+        ...progress,
+        skill: skill!,
+      };
+    }).filter(item => item.skill);
+  }
+
+  async updateStudentSkillProgress(studentId: number, skillId: number, updates: Partial<StudentSkillProgress>, instructorId: number): Promise<StudentSkillProgress | undefined> {
+    const existing = Array.from(this.studentSkillProgress.values())
+      .find(p => p.studentId === studentId && p.skillId === skillId);
+
+    if (existing) {
+      const updatedProgress = { ...existing, ...updates, lastActivityAt: new Date() };
+      this.studentSkillProgress.set(existing.id, updatedProgress);
+      return updatedProgress;
+    } else {
+      // Create new progress record
+      const id = this.currentStudentSkillProgressId++;
+      const newProgress: StudentSkillProgress = {
+        id,
+        studentId,
+        skillId,
+        instructorId,
+        currentLevel: "beginner",
+        progressPercentage: "0",
+        assessmentsPassed: 0,
+        totalAssessments: 0,
+        lastActivityAt: new Date(),
+        skillAchievedAt: null,
+        notes: null,
+        ...updates,
+      };
+      this.studentSkillProgress.set(id, newProgress);
+      return newProgress;
+    }
+  }
+
+  // Skill Attempts methods
+  async getSkillAttempts(assessmentId: number): Promise<(SkillAttempt & { student: PublicUser })[]> {
+    const attempts = Array.from(this.skillAttempts.values())
+      .filter(attempt => attempt.assessmentId === assessmentId)
+      .sort((a, b) => new Date(b.attemptedAt!).getTime() - new Date(a.attemptedAt!).getTime());
+      
+    return attempts.map(attempt => {
+      const student = this.users.get(attempt.studentId);
+      return {
+        ...attempt,
+        student: student ? this.sanitizeUser(student) : student!,
+      };
+    }).filter(item => item.student);
+  }
+
+  async recordSkillAttempt(insertAttempt: InsertSkillAttempt): Promise<SkillAttempt> {
+    const id = this.currentSkillAttemptId++;
+    const attempt: SkillAttempt = {
+      ...insertAttempt,
+      id,
+      attemptedAt: new Date(),
+    };
+    this.skillAttempts.set(id, attempt);
+    return attempt;
+  }
+
+  async getStudentAttemptHistory(studentId: number, assessmentId: number): Promise<SkillAttempt[]> {
+    return Array.from(this.skillAttempts.values())
+      .filter(attempt => attempt.studentId === studentId && attempt.assessmentId === assessmentId)
+      .sort((a, b) => new Date(b.attemptedAt!).getTime() - new Date(a.attemptedAt!).getTime());
   }
 }
 

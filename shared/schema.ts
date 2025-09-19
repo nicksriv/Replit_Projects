@@ -200,3 +200,122 @@ export type Enrollment = typeof enrollments.$inferSelect;
 export type StudentProgress = typeof studentProgress.$inferSelect;
 export type InsertCommunication = z.infer<typeof insertCommunicationSchema>;
 export type StudentCommunication = typeof studentCommunications.$inferSelect;
+
+// Skills Management
+export const skills = pgTable("skills", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  category: text("category").notNull(), // technical, soft, domain-specific
+  level: text("level").notNull(), // beginner, intermediate, advanced, expert
+  prerequisites: text("prerequisites").array(), // Array of skill names or IDs
+  instructorId: integer("instructor_id").notNull().references(() => users.id),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const skillAssessments = pgTable("skill_assessments", {
+  id: serial("id").primaryKey(),
+  skillId: integer("skill_id").notNull().references(() => skills.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull(), // quiz, practical, project, peer_review
+  questions: text("questions").notNull(), // JSON string of questions
+  passingScore: decimal("passing_score", { precision: 5, scale: 2 }).notNull(),
+  timeLimit: integer("time_limit"), // in minutes
+  maxAttempts: integer("max_attempts").default(3),
+  instructorId: integer("instructor_id").notNull().references(() => users.id),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const studentSkillProgress = pgTable("student_skill_progress", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").notNull().references(() => users.id),
+  skillId: integer("skill_id").notNull().references(() => skills.id),
+  instructorId: integer("instructor_id").notNull().references(() => users.id),
+  currentLevel: text("current_level").notNull().default("beginner"), // beginner, intermediate, advanced, expert
+  progressPercentage: decimal("progress_percentage", { precision: 5, scale: 2 }).default("0"),
+  assessmentsPassed: integer("assessments_passed").default(0),
+  totalAssessments: integer("total_assessments").default(0),
+  lastActivityAt: timestamp("last_activity_at").defaultNow(),
+  skillAchievedAt: timestamp("skill_achieved_at"), // When they completed/mastered the skill
+  notes: text("notes"),
+});
+
+export const skillAttempts = pgTable("skill_attempts", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").notNull().references(() => users.id),
+  assessmentId: integer("assessment_id").notNull().references(() => skillAssessments.id),
+  score: decimal("score", { precision: 5, scale: 2 }).notNull(),
+  answers: text("answers").notNull(), // JSON string of student answers
+  passed: boolean("passed").default(false),
+  timeSpent: integer("time_spent"), // in minutes
+  attemptedAt: timestamp("attempted_at").defaultNow(),
+  feedback: text("feedback"),
+});
+
+// Skills Schemas
+export const insertSkillSchema = createInsertSchema(skills).omit({
+  id: true,
+  createdAt: true,
+  instructorId: true,
+}).extend({
+  name: z.string().min(2, "Skill name must be at least 2 characters").max(100, "Skill name must be less than 100 characters"),
+  description: z.string().min(10, "Description must be at least 10 characters").max(500, "Description must be less than 500 characters"),
+  category: z.enum(["technical", "soft", "domain-specific"]),
+  level: z.enum(["beginner", "intermediate", "advanced", "expert"]),
+  prerequisites: z.array(z.string()).optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const insertSkillAssessmentSchema = createInsertSchema(skillAssessments).omit({
+  id: true,
+  createdAt: true,
+  instructorId: true,
+}).extend({
+  skillId: z.number().positive("Skill ID is required"),
+  name: z.string().min(3, "Assessment name must be at least 3 characters").max(100, "Assessment name must be less than 100 characters"),
+  description: z.string().max(500, "Description must be less than 500 characters").optional(),
+  type: z.enum(["quiz", "practical", "project", "peer_review"]),
+  questions: z.string().min(1, "Questions are required"),
+  passingScore: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0 && Number(val) <= 100, "Passing score must be between 0 and 100"),
+  timeLimit: z.number().positive().optional(),
+  maxAttempts: z.number().positive().optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const insertStudentSkillProgressSchema = createInsertSchema(studentSkillProgress).omit({
+  id: true,
+  instructorId: true,
+}).extend({
+  studentId: z.number().positive("Student ID is required"),
+  skillId: z.number().positive("Skill ID is required"),
+  currentLevel: z.enum(["beginner", "intermediate", "advanced", "expert"]).optional(),
+  progressPercentage: z.string().refine((val) => {
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= 0 && num <= 100;
+  }, "Progress must be between 0 and 100").optional(),
+  notes: z.string().max(1000, "Notes must be less than 1000 characters").optional(),
+});
+
+export const insertSkillAttemptSchema = createInsertSchema(skillAttempts).omit({
+  id: true,
+  attemptedAt: true,
+}).extend({
+  studentId: z.number().positive("Student ID is required"),
+  assessmentId: z.number().positive("Assessment ID is required"),
+  score: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0 && Number(val) <= 100, "Score must be between 0 and 100"),
+  answers: z.string().min(1, "Answers are required"),
+  timeSpent: z.number().positive().optional(),
+  feedback: z.string().max(1000, "Feedback must be less than 1000 characters").optional(),
+});
+
+export type InsertSkill = z.infer<typeof insertSkillSchema>;
+export type Skill = typeof skills.$inferSelect;
+export type InsertSkillAssessment = z.infer<typeof insertSkillAssessmentSchema>;
+export type SkillAssessment = typeof skillAssessments.$inferSelect;
+export type InsertStudentSkillProgress = z.infer<typeof insertStudentSkillProgressSchema>;
+export type StudentSkillProgress = typeof studentSkillProgress.$inferSelect;
+export type InsertSkillAttempt = z.infer<typeof insertSkillAttemptSchema>;
+export type SkillAttempt = typeof skillAttempts.$inferSelect;

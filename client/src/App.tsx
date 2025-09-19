@@ -10,6 +10,7 @@ import { CreateCoursePage } from "@/pages/CreateCoursePage";
 import { MyCourses } from "@/pages/MyCourses";
 import { RevenueAndPayouts } from "@/pages/RevenueAndPayouts";
 import { LearnerManagement } from "@/pages/LearnerManagement";
+import { SkillsManagement } from "@/pages/SkillsManagement";
 
 function Router() {
   return (
@@ -23,7 +24,7 @@ function Router() {
       <Route path="/courses" component={MyCourses} />
       <Route path="/revenue" component={RevenueAndPayouts} />
       <Route path="/learners" component={LearnerManagement} />
-      <Route path="/skills" component={() => <div data-testid="page-skills">Skills Management - Coming Soon</div>} />
+      <Route path="/skills" component={SkillsManagement} />
       <Route path="/reports" component={() => <div data-testid="page-reports">Reports - Coming Soon</div>} />
       <Route path="/marketing" component={() => <div data-testid="page-marketing">Marketing - Coming Soon</div>} />
       <Route path="/settings" component={() => <div data-testid="page-settings">Settings - Coming Soon</div>} />

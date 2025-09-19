@@ -8,9 +8,12 @@ import {
   updatePayoutSchema,
   insertEnrollmentSchema,
   updateEnrollmentSchema,
-  insertCommunicationSchema
+  insertCommunicationSchema,
+  insertSkillSchema,
+  insertSkillAssessmentSchema
 } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Course Routes
@@ -347,6 +350,144 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(communication);
     } catch (error) {
       res.status(500).json({ error: "Failed to mark communication as read" });
+    }
+  });
+
+  // Skills Management Routes
+  app.get("/api/skills", async (req, res) => {
+    try {
+      const instructorId = 1; // TODO: Get from auth session
+      const skills = await storage.getSkills(instructorId);
+      res.json(skills);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch skills" });
+    }
+  });
+
+  app.post("/api/skills", async (req, res) => {
+    try {
+      const validatedData = insertSkillSchema.parse(req.body);
+      const instructorId = 1; // TODO: Get from auth session
+      
+      const skill = await storage.createSkill(validatedData, instructorId);
+      res.status(201).json(skill);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create skill" });
+    }
+  });
+
+  app.patch("/api/skills/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid skill ID" });
+      }
+
+      const validatedData = insertSkillSchema.partial().parse(req.body);
+      const skill = await storage.updateSkill(id, validatedData);
+      
+      if (!skill) {
+        return res.status(404).json({ error: "Skill not found" });
+      }
+
+      res.json(skill);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update skill" });
+    }
+  });
+
+  app.delete("/api/skills/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid skill ID" });
+      }
+
+      const success = await storage.deleteSkill(id);
+      if (!success) {
+        return res.status(404).json({ error: "Skill not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete skill" });
+    }
+  });
+
+  // Student Skill Progress Routes
+  app.get("/api/student-skill-progress", async (req, res) => {
+    try {
+      const instructorId = 1; // TODO: Get from auth session
+      const progress = await storage.getStudentSkillProgress(instructorId);
+      res.json(progress);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch student skill progress" });
+    }
+  });
+
+  app.patch("/api/student-skill-progress/:studentId/:skillId", async (req, res) => {
+    try {
+      const studentId = parseInt(req.params.studentId);
+      const skillId = parseInt(req.params.skillId);
+      
+      if (isNaN(studentId) || isNaN(skillId)) {
+        return res.status(400).json({ error: "Invalid student or skill ID" });
+      }
+
+      const instructorId = 1; // TODO: Get from auth session
+      const updateSchema = z.object({
+        currentLevel: z.enum(["beginner", "intermediate", "advanced", "expert"]).optional(),
+        progressPercentage: z.string().refine((val) => {
+          const num = parseFloat(val);
+          return !isNaN(num) && num >= 0 && num <= 100;
+        }, "Progress must be between 0 and 100").optional(),
+        notes: z.string().max(1000, "Notes must be less than 1000 characters").optional(),
+      });
+
+      const validatedData = updateSchema.parse(req.body);
+      const progress = await storage.updateStudentSkillProgress(studentId, skillId, validatedData, instructorId);
+      res.json(progress);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update student skill progress" });
+    }
+  });
+
+  // Skill Assessments Routes
+  app.get("/api/skills/:skillId/assessments", async (req, res) => {
+    try {
+      const skillId = parseInt(req.params.skillId);
+      if (isNaN(skillId)) {
+        return res.status(400).json({ error: "Invalid skill ID" });
+      }
+
+      const assessments = await storage.getSkillAssessments(skillId);
+      res.json(assessments);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch skill assessments" });
+    }
+  });
+
+  app.post("/api/skill-assessments", async (req, res) => {
+    try {
+      const validatedData = insertSkillAssessmentSchema.parse(req.body);
+      const instructorId = 1; // TODO: Get from auth session
+      
+      const assessment = await storage.createSkillAssessment(validatedData, instructorId);
+      res.status(201).json(assessment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create skill assessment" });
     }
   });
 

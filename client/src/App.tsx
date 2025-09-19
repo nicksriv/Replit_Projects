@@ -11,6 +11,7 @@ import { MyCourses } from "@/pages/MyCourses";
 import { RevenueAndPayouts } from "@/pages/RevenueAndPayouts";
 import { LearnerManagement } from "@/pages/LearnerManagement";
 import { SkillsManagement } from "@/pages/SkillsManagement";
+import { Reports } from "@/pages/Reports";
 
 function Router() {
   return (
@@ -25,7 +26,7 @@ function Router() {
       <Route path="/revenue" component={RevenueAndPayouts} />
       <Route path="/learners" component={LearnerManagement} />
       <Route path="/skills" component={SkillsManagement} />
-      <Route path="/reports" component={() => <div data-testid="page-reports">Reports - Coming Soon</div>} />
+      <Route path="/reports" component={Reports} />
       <Route path="/marketing" component={() => <div data-testid="page-marketing">Marketing - Coming Soon</div>} />
       <Route path="/settings" component={() => <div data-testid="page-settings">Settings - Coming Soon</div>} />
       <Route path="/help" component={() => <div data-testid="page-help">Help & Support - Coming Soon</div>} />

@@ -16,7 +16,15 @@ import {
   insertPromotionalCodeSchema,
   updatePromotionalCodeSchema,
   insertEmailCampaignSchema,
-  insertSocialMediaPostSchema
+  insertSocialMediaPostSchema,
+  insertUserPreferencesSchema,
+  updateUserPreferencesSchema,
+  insertNotificationSettingsSchema,
+  updateNotificationSettingsSchema,
+  insertInstructorSettingsSchema,
+  updateInstructorSettingsSchema,
+  insertPrivacySettingsSchema,
+  updatePrivacySettingsSchema
 } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
@@ -746,6 +754,295 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to create social media post" });
+    }
+  });
+
+  // Settings Routes
+  
+  // User Preferences Routes
+  app.get("/api/user-preferences", async (req, res) => {
+    try {
+      const userId = 1; // TODO: Get from auth session
+      let preferences = await storage.getUserPreferences(userId);
+      
+      // Return computed defaults if none exist (without persisting)
+      if (!preferences) {
+        const defaultPrefs = {
+          id: 0, // Temporary ID for frontend
+          userId,
+          theme: "light" as const,
+          language: "en",
+          timezone: "UTC",
+          dateFormat: "MM/dd/yyyy",
+          timeFormat: "12h" as const,
+          currency: "USD",
+          autoSave: true,
+          compactView: false,
+          showTutorials: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        preferences = defaultPrefs;
+      }
+      
+      res.json(preferences);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user preferences" });
+    }
+  });
+
+  app.put("/api/user-preferences", async (req, res) => {
+    try {
+      const userId = 1; // TODO: Get from auth session
+      const validatedData = updateUserPreferencesSchema.parse(req.body);
+      
+      // Try to update existing preferences
+      let preferences = await storage.updateUserPreferences(userId, validatedData);
+      
+      // If no existing preferences, create them
+      if (!preferences) {
+        const defaultPrefs = {
+          theme: "light" as const,
+          language: "en",
+          timezone: "UTC",
+          dateFormat: "MM/dd/yyyy",
+          timeFormat: "12h" as const,
+          currency: "USD",
+          autoSave: true,
+          compactView: false,
+          showTutorials: true,
+          ...validatedData, // Override with provided values
+        };
+        preferences = await storage.createUserPreferences(defaultPrefs, userId);
+      }
+      
+      res.json(preferences);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update user preferences" });
+    }
+  });
+
+  // Notification Settings Routes
+  app.get("/api/notification-settings", async (req, res) => {
+    try {
+      const userId = 1; // TODO: Get from auth session
+      let settings = await storage.getNotificationSettings(userId);
+      
+      // Return computed defaults if none exist (without persisting)
+      if (!settings) {
+        const defaultSettings = {
+          id: 0, // Temporary ID for frontend
+          userId,
+          emailNotifications: true,
+          pushNotifications: true,
+          smsNotifications: false,
+          marketingEmails: false,
+          courseUpdates: true,
+          newEnrollments: true,
+          paymentAlerts: true,
+          systemUpdates: true,
+          weeklyReports: true,
+          monthlyReports: false,
+          reminderFrequency: "daily" as const,
+          quietHoursStart: null,
+          quietHoursEnd: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        settings = defaultSettings;
+      }
+      
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch notification settings" });
+    }
+  });
+
+  app.put("/api/notification-settings", async (req, res) => {
+    try {
+      const userId = 1; // TODO: Get from auth session
+      const validatedData = updateNotificationSettingsSchema.parse(req.body);
+      
+      // Try to update existing settings
+      let settings = await storage.updateNotificationSettings(userId, validatedData);
+      
+      // If no existing settings, create them
+      if (!settings) {
+        const defaultSettings = {
+          emailNotifications: true,
+          pushNotifications: true,
+          smsNotifications: false,
+          marketingEmails: false,
+          courseUpdates: true,
+          newEnrollments: true,
+          paymentAlerts: true,
+          systemUpdates: true,
+          weeklyReports: true,
+          monthlyReports: false,
+          reminderFrequency: "daily" as const,
+          ...validatedData, // Override with provided values
+        };
+        settings = await storage.createNotificationSettings(defaultSettings, userId);
+      }
+      
+      res.json(settings);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update notification settings" });
+    }
+  });
+
+  // Instructor Settings Routes
+  app.get("/api/instructor-settings", async (req, res) => {
+    try {
+      const instructorId = 1; // TODO: Get from auth session
+      let settings = await storage.getInstructorSettings(instructorId);
+      
+      // Return computed defaults if none exist (without persisting)
+      if (!settings) {
+        const defaultSettings = {
+          id: 0, // Temporary ID for frontend
+          instructorId,
+          defaultCoursePrice: "99.99",
+          defaultCourseDuration: 8,
+          defaultCourseLevel: "beginner" as const,
+          autoPublishCourses: false,
+          allowCourseDiscounts: true,
+          maxDiscountPercentage: 50,
+          payoutMethod: "bank_transfer" as const,
+          payoutFrequency: "monthly" as const,
+          taxId: null,
+          businessName: null,
+          businessAddress: null,
+          websiteUrl: null,
+          socialMediaLinks: null,
+          bio: null,
+          expertise: null,
+          yearsOfExperience: null,
+          autoReplyEnabled: false,
+          autoReplyMessage: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        settings = defaultSettings;
+      }
+      
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch instructor settings" });
+    }
+  });
+
+  app.put("/api/instructor-settings", async (req, res) => {
+    try {
+      const instructorId = 1; // TODO: Get from auth session
+      const validatedData = updateInstructorSettingsSchema.parse(req.body);
+      
+      // Try to update existing settings
+      let settings = await storage.updateInstructorSettings(instructorId, validatedData);
+      
+      // If no existing settings, create them
+      if (!settings) {
+        const defaultSettings = {
+          defaultCoursePrice: "99.99",
+          defaultCourseDuration: 8,
+          defaultCourseLevel: "beginner" as const,
+          autoPublishCourses: false,
+          allowCourseDiscounts: true,
+          maxDiscountPercentage: 50,
+          payoutMethod: "bank_transfer" as const,
+          payoutFrequency: "monthly" as const,
+          autoReplyEnabled: false,
+          ...validatedData, // Override with provided values
+        };
+        settings = await storage.createInstructorSettings(defaultSettings, instructorId);
+      }
+      
+      res.json(settings);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update instructor settings" });
+    }
+  });
+
+  // Privacy Settings Routes
+  app.get("/api/privacy-settings", async (req, res) => {
+    try {
+      const userId = 1; // TODO: Get from auth session
+      let settings = await storage.getPrivacySettings(userId);
+      
+      // Return computed defaults if none exist (without persisting)
+      if (!settings) {
+        const defaultSettings = {
+          id: 0, // Temporary ID for frontend
+          userId,
+          profileVisibility: "public" as const,
+          showEmail: false,
+          showPhoneNumber: false,
+          allowContactFromStudents: true,
+          allowContactFromInstructors: true,
+          showEnrollmentHistory: true,
+          showProgressToInstructors: true,
+          allowCertificateSharing: true,
+          allowReviews: true,
+          allowMessaging: true,
+          dataRetentionPeriod: 365,
+          allowAnalytics: true,
+          allowTargetedAds: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        settings = defaultSettings;
+      }
+      
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch privacy settings" });
+    }
+  });
+
+  app.put("/api/privacy-settings", async (req, res) => {
+    try {
+      const userId = 1; // TODO: Get from auth session
+      const validatedData = updatePrivacySettingsSchema.parse(req.body);
+      
+      // Try to update existing settings
+      let settings = await storage.updatePrivacySettings(userId, validatedData);
+      
+      // If no existing settings, create them
+      if (!settings) {
+        const defaultSettings = {
+          profileVisibility: "public" as const,
+          showEmail: false,
+          showPhoneNumber: false,
+          allowContactFromStudents: true,
+          allowContactFromInstructors: true,
+          showEnrollmentHistory: true,
+          showProgressToInstructors: true,
+          allowCertificateSharing: true,
+          allowReviews: true,
+          allowMessaging: true,
+          dataRetentionPeriod: 365,
+          allowAnalytics: true,
+          allowTargetedAds: false,
+          ...validatedData, // Override with provided values
+        };
+        settings = await storage.createPrivacySettings(defaultSettings, userId);
+      }
+      
+      res.json(settings);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update privacy settings" });
     }
   });
 

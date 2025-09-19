@@ -14,6 +14,10 @@ import {
   campaignPerformance,
   emailCampaigns,
   socialMediaPosts,
+  userPreferences,
+  notificationSettings,
+  instructorSettings,
+  privacySettings,
   type User, 
   type InsertUser, 
   type PublicUser,
@@ -46,7 +50,19 @@ import {
   type EmailCampaign,
   type InsertEmailCampaign,
   type SocialMediaPost,
-  type InsertSocialMediaPost
+  type InsertSocialMediaPost,
+  type UserPreferences,
+  type InsertUserPreferences,
+  type UpdateUserPreferences,
+  type NotificationSettings,
+  type InsertNotificationSettings,
+  type UpdateNotificationSettings,
+  type InstructorSettings,
+  type InsertInstructorSettings,
+  type UpdateInstructorSettings,
+  type PrivacySettings,
+  type InsertPrivacySettings,
+  type UpdatePrivacySettings
 } from "@shared/schema";
 
 // modify the interface with any CRUD methods
@@ -145,6 +161,28 @@ export interface IStorage {
   createSocialMediaPost(post: InsertSocialMediaPost, instructorId: number): Promise<SocialMediaPost>;
   updateSocialMediaPost(id: number, updates: Partial<SocialMediaPost>): Promise<SocialMediaPost | undefined>;
   deleteSocialMediaPost(id: number): Promise<boolean>;
+  
+  // Settings methods
+  
+  // User Preferences
+  getUserPreferences(userId: number): Promise<UserPreferences | undefined>;
+  createUserPreferences(preferences: InsertUserPreferences, userId: number): Promise<UserPreferences>;
+  updateUserPreferences(userId: number, updates: UpdateUserPreferences): Promise<UserPreferences | undefined>;
+  
+  // Notification Settings
+  getNotificationSettings(userId: number): Promise<NotificationSettings | undefined>;
+  createNotificationSettings(settings: InsertNotificationSettings, userId: number): Promise<NotificationSettings>;
+  updateNotificationSettings(userId: number, updates: UpdateNotificationSettings): Promise<NotificationSettings | undefined>;
+  
+  // Instructor Settings
+  getInstructorSettings(instructorId: number): Promise<InstructorSettings | undefined>;
+  createInstructorSettings(settings: InsertInstructorSettings, instructorId: number): Promise<InstructorSettings>;
+  updateInstructorSettings(instructorId: number, updates: UpdateInstructorSettings): Promise<InstructorSettings | undefined>;
+  
+  // Privacy Settings
+  getPrivacySettings(userId: number): Promise<PrivacySettings | undefined>;
+  createPrivacySettings(settings: InsertPrivacySettings, userId: number): Promise<PrivacySettings>;
+  updatePrivacySettings(userId: number, updates: UpdatePrivacySettings): Promise<PrivacySettings | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -163,6 +201,10 @@ export class MemStorage implements IStorage {
   private campaignPerformance: Map<number, CampaignPerformance>;
   private emailCampaigns: Map<number, EmailCampaign>;
   private socialMediaPosts: Map<number, SocialMediaPost>;
+  private userPreferences: Map<number, UserPreferences>;
+  private notificationSettings: Map<number, NotificationSettings>;
+  private instructorSettings: Map<number, InstructorSettings>;
+  private privacySettings: Map<number, PrivacySettings>;
   private currentUserId: number;
   private currentCourseId: number;
   private currentRevenueId: number;
@@ -178,6 +220,10 @@ export class MemStorage implements IStorage {
   private currentCampaignPerformanceId: number;
   private currentEmailCampaignId: number;
   private currentSocialMediaPostId: number;
+  private currentUserPreferencesId: number;
+  private currentNotificationSettingsId: number;
+  private currentInstructorSettingsId: number;
+  private currentPrivacySettingsId: number;
 
   constructor() {
     this.users = new Map();
@@ -195,6 +241,10 @@ export class MemStorage implements IStorage {
     this.campaignPerformance = new Map();
     this.emailCampaigns = new Map();
     this.socialMediaPosts = new Map();
+    this.userPreferences = new Map();
+    this.notificationSettings = new Map();
+    this.instructorSettings = new Map();
+    this.privacySettings = new Map();
     this.currentUserId = 1;
     this.currentCourseId = 1;
     this.currentRevenueId = 1;
@@ -210,6 +260,10 @@ export class MemStorage implements IStorage {
     this.currentCampaignPerformanceId = 1;
     this.currentEmailCampaignId = 1;
     this.currentSocialMediaPostId = 1;
+    this.currentUserPreferencesId = 1;
+    this.currentNotificationSettingsId = 1;
+    this.currentInstructorSettingsId = 1;
+    this.currentPrivacySettingsId = 1;
     
     // Add some sample data for demo
     this.seedSampleData();
@@ -1093,6 +1147,144 @@ export class MemStorage implements IStorage {
 
   async deleteSocialMediaPost(id: number): Promise<boolean> {
     return this.socialMediaPosts.delete(id);
+  }
+
+  // Settings methods
+  
+  // User Preferences methods
+  async getUserPreferences(userId: number): Promise<UserPreferences | undefined> {
+    return Array.from(this.userPreferences.values())
+      .find(prefs => prefs.userId === userId);
+  }
+
+  async createUserPreferences(insertPreferences: InsertUserPreferences, userId: number): Promise<UserPreferences> {
+    const id = this.currentUserPreferencesId++;
+    const preferences: UserPreferences = {
+      ...insertPreferences,
+      id,
+      userId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.userPreferences.set(id, preferences);
+    return preferences;
+  }
+
+  async updateUserPreferences(userId: number, updates: UpdateUserPreferences): Promise<UserPreferences | undefined> {
+    const existing = Array.from(this.userPreferences.values())
+      .find(prefs => prefs.userId === userId);
+    
+    if (!existing) return undefined;
+
+    const updatedPreferences = { 
+      ...existing, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    this.userPreferences.set(existing.id, updatedPreferences);
+    return updatedPreferences;
+  }
+
+  // Notification Settings methods
+  async getNotificationSettings(userId: number): Promise<NotificationSettings | undefined> {
+    return Array.from(this.notificationSettings.values())
+      .find(settings => settings.userId === userId);
+  }
+
+  async createNotificationSettings(insertSettings: InsertNotificationSettings, userId: number): Promise<NotificationSettings> {
+    const id = this.currentNotificationSettingsId++;
+    const settings: NotificationSettings = {
+      ...insertSettings,
+      id,
+      userId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.notificationSettings.set(id, settings);
+    return settings;
+  }
+
+  async updateNotificationSettings(userId: number, updates: UpdateNotificationSettings): Promise<NotificationSettings | undefined> {
+    const existing = Array.from(this.notificationSettings.values())
+      .find(settings => settings.userId === userId);
+    
+    if (!existing) return undefined;
+
+    const updatedSettings = { 
+      ...existing, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    this.notificationSettings.set(existing.id, updatedSettings);
+    return updatedSettings;
+  }
+
+  // Instructor Settings methods
+  async getInstructorSettings(instructorId: number): Promise<InstructorSettings | undefined> {
+    return Array.from(this.instructorSettings.values())
+      .find(settings => settings.instructorId === instructorId);
+  }
+
+  async createInstructorSettings(insertSettings: InsertInstructorSettings, instructorId: number): Promise<InstructorSettings> {
+    const id = this.currentInstructorSettingsId++;
+    const settings: InstructorSettings = {
+      ...insertSettings,
+      id,
+      instructorId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.instructorSettings.set(id, settings);
+    return settings;
+  }
+
+  async updateInstructorSettings(instructorId: number, updates: UpdateInstructorSettings): Promise<InstructorSettings | undefined> {
+    const existing = Array.from(this.instructorSettings.values())
+      .find(settings => settings.instructorId === instructorId);
+    
+    if (!existing) return undefined;
+
+    const updatedSettings = { 
+      ...existing, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    this.instructorSettings.set(existing.id, updatedSettings);
+    return updatedSettings;
+  }
+
+  // Privacy Settings methods
+  async getPrivacySettings(userId: number): Promise<PrivacySettings | undefined> {
+    return Array.from(this.privacySettings.values())
+      .find(settings => settings.userId === userId);
+  }
+
+  async createPrivacySettings(insertSettings: InsertPrivacySettings, userId: number): Promise<PrivacySettings> {
+    const id = this.currentPrivacySettingsId++;
+    const settings: PrivacySettings = {
+      ...insertSettings,
+      id,
+      userId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.privacySettings.set(id, settings);
+    return settings;
+  }
+
+  async updatePrivacySettings(userId: number, updates: UpdatePrivacySettings): Promise<PrivacySettings | undefined> {
+    const existing = Array.from(this.privacySettings.values())
+      .find(settings => settings.userId === userId);
+    
+    if (!existing) return undefined;
+
+    const updatedSettings = { 
+      ...existing, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    this.privacySettings.set(existing.id, updatedSettings);
+    return updatedSettings;
   }
 }
 

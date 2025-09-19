@@ -510,3 +510,157 @@ export type InsertEmailCampaign = z.infer<typeof insertEmailCampaignSchema>;
 export type EmailCampaign = typeof emailCampaigns.$inferSelect;
 export type InsertSocialMediaPost = z.infer<typeof insertSocialMediaPostSchema>;
 export type SocialMediaPost = typeof socialMediaPosts.$inferSelect;
+
+// Settings Management
+export const userPreferences = pgTable("user_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  theme: text("theme").default("light"), // light, dark, system
+  language: text("language").default("en"), // en, es, fr, de, etc.
+  timezone: text("timezone").default("UTC"),
+  dateFormat: text("date_format").default("MM/dd/yyyy"),
+  timeFormat: text("time_format").default("12h"), // 12h, 24h
+  currency: text("currency").default("USD"),
+  autoSave: boolean("auto_save").default(true),
+  compactView: boolean("compact_view").default(false),
+  showTutorials: boolean("show_tutorials").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const notificationSettings = pgTable("notification_settings", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  emailNotifications: boolean("email_notifications").default(true),
+  pushNotifications: boolean("push_notifications").default(true),
+  smsNotifications: boolean("sms_notifications").default(false),
+  marketingEmails: boolean("marketing_emails").default(false),
+  courseUpdates: boolean("course_updates").default(true),
+  newEnrollments: boolean("new_enrollments").default(true),
+  paymentAlerts: boolean("payment_alerts").default(true),
+  systemUpdates: boolean("system_updates").default(true),
+  weeklyReports: boolean("weekly_reports").default(true),
+  monthlyReports: boolean("monthly_reports").default(false),
+  reminderFrequency: text("reminder_frequency").default("daily"), // none, daily, weekly
+  quietHoursStart: text("quiet_hours_start"), // 22:00
+  quietHoursEnd: text("quiet_hours_end"), // 08:00
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const instructorSettings = pgTable("instructor_settings", {
+  id: serial("id").primaryKey(),
+  instructorId: integer("instructor_id").references(() => users.id),
+  defaultCoursePrice: decimal("default_course_price", { precision: 10, scale: 2 }).default("99.99"),
+  defaultCourseDuration: integer("default_course_duration").default(8), // hours
+  defaultCourseLevel: text("default_course_level").default("beginner"),
+  autoPublishCourses: boolean("auto_publish_courses").default(false),
+  allowCourseDiscounts: boolean("allow_course_discounts").default(true),
+  maxDiscountPercentage: integer("max_discount_percentage").default(50),
+  payoutMethod: text("payout_method").default("bank_transfer"), // bank_transfer, paypal, stripe
+  payoutFrequency: text("payout_frequency").default("monthly"), // weekly, bi_weekly, monthly
+  taxId: text("tax_id"),
+  businessName: text("business_name"),
+  businessAddress: text("business_address"),
+  websiteUrl: text("website_url"),
+  socialMediaLinks: text("social_media_links").array(),
+  bio: text("bio"),
+  expertise: text("expertise").array(),
+  yearsOfExperience: integer("years_of_experience"),
+  autoReplyEnabled: boolean("auto_reply_enabled").default(false),
+  autoReplyMessage: text("auto_reply_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const privacySettings = pgTable("privacy_settings", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  profileVisibility: text("profile_visibility").default("public"), // public, private, instructors_only
+  showEmail: boolean("show_email").default(false),
+  showPhoneNumber: boolean("show_phone_number").default(false),
+  allowContactFromStudents: boolean("allow_contact_from_students").default(true),
+  allowContactFromInstructors: boolean("allow_contact_from_instructors").default(true),
+  showEnrollmentHistory: boolean("show_enrollment_history").default(true),
+  showProgressToInstructors: boolean("show_progress_to_instructors").default(true),
+  allowCertificateSharing: boolean("allow_certificate_sharing").default(true),
+  allowReviews: boolean("allow_reviews").default(true),
+  allowMessaging: boolean("allow_messaging").default(true),
+  dataRetentionPeriod: integer("data_retention_period").default(365), // days
+  allowAnalytics: boolean("allow_analytics").default(true),
+  allowTargetedAds: boolean("allow_targeted_ads").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Settings Schemas
+export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  theme: z.enum(["light", "dark", "system"]),
+  language: z.string().min(2).max(5),
+  timezone: z.string().min(1),
+  dateFormat: z.string().min(1),
+  timeFormat: z.enum(["12h", "24h"]),
+  currency: z.string().length(3),
+});
+
+export const insertNotificationSettingsSchema = createInsertSchema(notificationSettings).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  reminderFrequency: z.enum(["none", "daily", "weekly"]),
+  quietHoursStart: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+  quietHoursEnd: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+});
+
+export const insertInstructorSettingsSchema = createInsertSchema(instructorSettings).omit({
+  id: true,
+  instructorId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  defaultCoursePrice: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0, "Price must be a valid positive number"),
+  defaultCourseDuration: z.number().min(1).max(200),
+  defaultCourseLevel: z.enum(["beginner", "intermediate", "advanced"]),
+  maxDiscountPercentage: z.number().min(0).max(100),
+  payoutMethod: z.enum(["bank_transfer", "paypal", "stripe"]),
+  payoutFrequency: z.enum(["weekly", "bi_weekly", "monthly"]),
+  websiteUrl: z.string().url().optional().or(z.literal("")),
+  socialMediaLinks: z.array(z.string().url()).optional(),
+  expertise: z.array(z.string()).optional(),
+  yearsOfExperience: z.number().min(0).max(50).optional(),
+});
+
+export const insertPrivacySettingsSchema = createInsertSchema(privacySettings).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  profileVisibility: z.enum(["public", "private", "instructors_only"]),
+  dataRetentionPeriod: z.number().min(30).max(3650), // 30 days to 10 years
+});
+
+export const updateUserPreferencesSchema = insertUserPreferencesSchema.partial();
+export const updateNotificationSettingsSchema = insertNotificationSettingsSchema.partial();
+export const updateInstructorSettingsSchema = insertInstructorSettingsSchema.partial();
+export const updatePrivacySettingsSchema = insertPrivacySettingsSchema.partial();
+
+export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
+export type UserPreferences = typeof userPreferences.$inferSelect;
+export type UpdateUserPreferences = z.infer<typeof updateUserPreferencesSchema>;
+export type InsertNotificationSettings = z.infer<typeof insertNotificationSettingsSchema>;
+export type NotificationSettings = typeof notificationSettings.$inferSelect;
+export type UpdateNotificationSettings = z.infer<typeof updateNotificationSettingsSchema>;
+export type InsertInstructorSettings = z.infer<typeof insertInstructorSettingsSchema>;
+export type InstructorSettings = typeof instructorSettings.$inferSelect;
+export type UpdateInstructorSettings = z.infer<typeof updateInstructorSettingsSchema>;
+export type InsertPrivacySettings = z.infer<typeof insertPrivacySettingsSchema>;
+export type PrivacySettings = typeof privacySettings.$inferSelect;
+export type UpdatePrivacySettings = z.infer<typeof updatePrivacySettingsSchema>;

@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Layout } from "@/components/Layout";
 import NotFound from "@/pages/not-found";
 
 import { ChloeMvpDash } from "@/pages/ChloeMvpDash";
@@ -18,24 +19,26 @@ import HelpSupport from "@/pages/HelpSupport";
 
 function Router() {
   return (
-    <Switch>
-      {/* Add pages below */}
-      <Route path="/" component={ChloeMvpDash} />
-      <Route path="/search" component={() => <div data-testid="page-search">Search Results - Coming Soon</div>} />
-      <Route path="/courses/new" component={CreateCoursePage} />
-      <Route path="/courses/:id/edit" component={() => <div data-testid="page-edit-course">Edit Course - Coming Soon</div>} />
-      <Route path="/courses/:id" component={() => <div data-testid="page-course-detail">Course Details - Coming Soon</div>} />
-      <Route path="/courses" component={MyCourses} />
-      <Route path="/revenue" component={RevenueAndPayouts} />
-      <Route path="/learners" component={LearnerManagement} />
-      <Route path="/skills" component={SkillsManagement} />
-      <Route path="/reports" component={Reports} />
-      <Route path="/marketing" component={Marketing} />
-      <Route path="/settings" component={Settings} />
-      <Route path="/help" component={HelpSupport} />
-      {/* Fallback to 404 */}
-      <Route component={NotFound} />
-    </Switch>
+    <Layout>
+      <Switch>
+        {/* Add pages below */}
+        <Route path="/" component={ChloeMvpDash} />
+        <Route path="/search" component={() => <div data-testid="page-search">Search Results - Coming Soon</div>} />
+        <Route path="/courses/new" component={CreateCoursePage} />
+        <Route path="/courses/:id/edit" component={() => <div data-testid="page-edit-course">Edit Course - Coming Soon</div>} />
+        <Route path="/courses/:id" component={() => <div data-testid="page-course-detail">Course Details - Coming Soon</div>} />
+        <Route path="/courses" component={MyCourses} />
+        <Route path="/revenue" component={RevenueAndPayouts} />
+        <Route path="/learners" component={LearnerManagement} />
+        <Route path="/skills" component={SkillsManagement} />
+        <Route path="/reports" component={Reports} />
+        <Route path="/marketing" component={Marketing} />
+        <Route path="/settings" component={Settings} />
+        <Route path="/help" component={HelpSupport} />
+        {/* Fallback to 404 */}
+        <Route component={NotFound} />
+      </Switch>
+    </Layout>
   );
 }
 

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { CourseOverviewSection } from "./sections/CourseOverviewSection";
 import { FeedbackReviewsSection } from "./sections/FeedbackReviewsSection";
-import { NavigationSidebarSection } from "./sections/NavigationSidebarSection";
 import { PerformanceSnapshotSection } from "./sections/PerformanceSnapshotSection";
 import { QuickActionsSection } from "./sections/QuickActionsSection";
 import { SalesFunnelSection } from "./sections/SalesFunnelSection";
@@ -30,14 +29,7 @@ export const ChloeMvpDash = (): JSX.Element => {
   };
 
   return (
-    <div className="bg-[#f5f6f8] w-full min-h-screen flex">
-      {/* Navigation Sidebar */}
-      <div className="flex-shrink-0">
-        <NavigationSidebarSection />
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col">
         {/* Header */}
         <header className="bg-text-colorwhite h-[72px] flex items-center justify-between px-[34px] py-2.5">
           <div className="flex items-center gap-[211px]">
@@ -183,7 +175,6 @@ export const ChloeMvpDash = (): JSX.Element => {
             </div>
           </div>
         </Button>
-      </div>
     </div>
   );
 };

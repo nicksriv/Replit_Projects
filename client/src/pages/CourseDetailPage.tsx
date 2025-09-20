@@ -114,6 +114,11 @@ export const CourseDetailPage = (): JSX.Element => {
   };
 
   const handlePlayPause = () => {
+    // Don't allow play if there are no slides to play
+    if (totalSlides === 0) {
+      return;
+    }
+    
     if (!isFullScreen) {
       // First click enters full screen and starts playing
       toggleFullScreen();
@@ -125,7 +130,7 @@ export const CourseDetailPage = (): JSX.Element => {
 
   // Auto-advance slides when playing (moved to top to satisfy hooks rule)
   useEffect(() => {
-    if (!isPlaying || !currentSlide) return;
+    if (!isPlaying || !currentSlide || totalSlides === 0) return;
 
     const duration = (currentSlide.duration || 3) * 60 * 1000; // Convert minutes to milliseconds
     const timer = setTimeout(() => {
@@ -137,7 +142,7 @@ export const CourseDetailPage = (): JSX.Element => {
     }, duration);
 
     return () => clearTimeout(timer);
-  }, [isPlaying, currentSlide, canGoNext]);
+  }, [isPlaying, currentSlide, canGoNext, totalSlides]);
 
   // Handle Escape key to exit full screen (moved to top to satisfy hooks rule)
   useEffect(() => {
@@ -272,7 +277,7 @@ export const CourseDetailPage = (): JSX.Element => {
         {/* Sidebar - Course Navigation */}
         {!isFullScreen && (
           <div className={`${sidebarCollapsed ? 'w-0' : 'w-80'} bg-white ${sidebarCollapsed ? '' : 'border-r border-gray-200'} overflow-hidden transition-all duration-300`}>
-            <div className="w-80 h-full overflow-y-auto">
+            <div className={`${sidebarCollapsed ? 'w-0' : 'w-80'} h-full overflow-y-auto transition-all duration-300`}>
               <div className="p-4">
                 <h3 className="font-semibold text-gray-900 mb-4">Course Content</h3>
                 
@@ -315,19 +320,25 @@ export const CourseDetailPage = (): JSX.Element => {
                       
                       {lessonIdx === currentLessonIndex && (
                         <div className="border-t bg-gray-50">
-                          {lesson.slides.map((slide, slideIdx) => (
-                            <div
-                              key={slide.id}
-                              className={`px-4 py-2 text-xs cursor-pointer hover:bg-gray-100 border-l-2 ${
-                                slideIdx === currentSlideIndex 
-                                  ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                                  : 'border-transparent'
-                              }`}
-                              onClick={() => setCurrentSlideIndex(slideIdx)}
-                            >
-                              {slideIdx + 1}. {slide.title}
+                          {lesson.slides?.length > 0 ? (
+                            lesson.slides.map((slide, slideIdx) => (
+                              <div
+                                key={slide.id}
+                                className={`px-4 py-2 text-xs cursor-pointer hover:bg-gray-100 border-l-2 ${
+                                  slideIdx === currentSlideIndex 
+                                    ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                                    : 'border-transparent'
+                                }`}
+                                onClick={() => setCurrentSlideIndex(slideIdx)}
+                              >
+                                {slideIdx + 1}. {slide.title}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="px-4 py-2 text-xs text-gray-500 italic">
+                              No slides available for this lesson
                             </div>
-                          ))}
+                          )}
                         </div>
                       )}
                     </div>

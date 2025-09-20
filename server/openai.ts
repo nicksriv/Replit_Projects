@@ -150,7 +150,7 @@ async function generateDetailedLesson(
   lessonNumber: number,
   courseContext: string
 ): Promise<CourseLesson> {
-  console.log(`Generating detailed content for lesson ${lessonNumber}: ${lessonOutline.title}`);
+  console.log(`Generating detailed content for lesson ${lessonNumber}: ${lessonOutline?.title || 'Unknown Title'}`);
 
   const prompt = `Create detailed, teacher-like content for this lesson:
 

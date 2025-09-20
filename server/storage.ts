@@ -625,7 +625,7 @@ export class MemStorage implements IStorage {
         return {
           ...course,
           generatedContent
-        };
+        } as Course & { generatedContent: any };
       } catch (error) {
         console.error('Failed to parse slides data for course', id, error);
         return course;

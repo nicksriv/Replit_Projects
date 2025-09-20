@@ -65,9 +65,10 @@ export const CourseDetailPage = (): JSX.Element => {
   const [isPlaying, setIsPlaying] = useState(false);
 
   const { data: course, isLoading, error } = useQuery<Course>({
-    queryKey: ["/api/courses", id],
+    queryKey: [`/api/courses/${id}`],
     enabled: !!id,
   });
+
 
 
   if (isLoading) {

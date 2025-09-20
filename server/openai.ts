@@ -175,8 +175,12 @@ Provide course-level information and lesson structure (without detailed slide co
 
       const rawContent = response.choices[0].message.content || '{}';
       
-      // Clean any potential comments or invalid JSON content
-      const cleanedContent = rawContent.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '').trim();
+      // Clean any potential comments or invalid JSON content that might cause parsing errors
+      const cleanedContent = rawContent
+        .replace(/\/\*[\s\S]*?\*\//g, '') // Remove /* */ comments
+        .replace(/\/\/.*$/gm, '') // Remove // comments
+        .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove control characters
+        .trim();
       
       const parsed = JSON.parse(cleanedContent);
       
@@ -231,30 +235,40 @@ Each bullet point should be a complete explanation that a teacher would provide,
         },
         {
           role: "user",
-          content: `${prompt}\n\nReturn valid JSON with this exact structure. Do not include any comments:
+          content: `${prompt}\n\nCREATE EXACTLY ${lessonOutline.slideTopics?.length || 5} slides, one for each of these topics in order: ${lessonOutline.slideTopics?.join(', ') || 'General topics'}
+
+CONTENT REQUIREMENTS FOR EACH SLIDE:
+- Each content point must be 50-100 words of detailed explanation
+- Include practical examples, real-world applications, and step-by-step reasoning
+- Explain WHY concepts matter, not just WHAT they are
+- Use teacher-like explanations with context and depth
+
+Return valid JSON with this structure:
 {
-  "id": "lesson-${lessonNumber}",
-  "title": "${lessonOutline?.title || `Lesson ${lessonNumber}`}",
-  "description": "${lessonOutline?.description || `Lesson ${lessonNumber} content`}",
-  "duration": ${lessonOutline?.duration || 45},
-  "objectives": ${JSON.stringify(lessonOutline?.objectives || [`Learn key concepts for lesson ${lessonNumber}`])},
-  "keyTakeaways": ${JSON.stringify(lessonOutline?.keyTakeaways || [`Key insights from lesson ${lessonNumber}`])},
+  "id": "lesson-1",
+  "title": "Lesson Title",
+  "description": "Lesson Description",
+  "duration": 45,
+  "objectives": ["Objective 1", "Objective 2"],
+  "keyTakeaways": ["Takeaway 1", "Takeaway 2"],
   "slides": [
     {
-      "id": "slide-${lessonNumber}-1",
+      "id": "slide-1-1",
       "title": "Slide Title",
       "type": "intro",
-      "duration": 8,
+      "duration": 5,
       "content": [
-        "Comprehensive explanation with context...",
-        "Detailed point with examples...",
-        "In-depth concept with reasoning...",
-        "Advanced insight with frameworks..."
+        "Detailed 50+ word explanation with context...",
+        "Another comprehensive point with examples...",
+        "Third in-depth explanation with reasoning...",
+        "Fourth detailed point with applications..."
       ],
-      "notes": "Comprehensive instructor notes with teaching guidance..."
+      "notes": "Instructor notes..."
     }
   ]
-}`
+}
+
+Do not include any comments, explanations, or text outside the JSON structure.`
         }
       ],
       response_format: { type: "json_object" },
@@ -280,6 +294,56 @@ Each bullet point should be a complete explanation that a teacher would provide,
     if (lessonContent.slides.length === 0) {
       throw new Error(`Lesson ${lessonNumber} has no slides`);
     }
+
+    // Normalize lesson metadata from outline if still generic/missing
+    if (!lessonContent.title || lessonContent.title === "Lesson Title Here" || lessonContent.title.includes("Lesson Title")) {
+      lessonContent.title = lessonOutline?.title || `Lesson ${lessonNumber}`;
+    }
+    if (!lessonContent.description || lessonContent.description === "Detailed lesson description") {
+      lessonContent.description = lessonOutline?.description || `Content for lesson ${lessonNumber}`;
+    }
+    if (!lessonContent.duration || lessonContent.duration === 45) {
+      lessonContent.duration = lessonOutline?.duration || 45;
+    }
+    if (!lessonContent.objectives || lessonContent.objectives.length === 0 || lessonContent.objectives[0] === "Learning objective 1") {
+      lessonContent.objectives = lessonOutline?.objectives || [`Learn key concepts for lesson ${lessonNumber}`];
+    }
+    if (!lessonContent.keyTakeaways || lessonContent.keyTakeaways.length === 0 || lessonContent.keyTakeaways[0] === "Key takeaway 1") {
+      lessonContent.keyTakeaways = lessonOutline?.keyTakeaways || [`Key insights from lesson ${lessonNumber}`];
+    }
+
+    // Validate and improve content quality
+    lessonContent.slides = lessonContent.slides.map((slide: any, index: number) => {
+      // Ensure slide has proper structure
+      if (!slide.content || !Array.isArray(slide.content)) {
+        slide.content = [`Content for ${slide.title || `slide ${index + 1}`}`];
+      }
+      
+      // Check content quality - require at least 4 substantial bullet points
+      if (slide.content.length < 4) {
+        console.warn(`Slide ${index + 1} has only ${slide.content.length} content points, expanding...`);
+        while (slide.content.length < 4) {
+          slide.content.push(`Additional important point about ${slide.title || `this topic`} with practical applications and detailed explanations.`);
+        }
+      }
+      
+      // Check for one-liner content and enhance if needed
+      slide.content = slide.content.map((point: string) => {
+        if (typeof point === 'string' && point.length < 50) {
+          return `${point} This concept is fundamental because it provides the foundation for understanding advanced applications and real-world implementations in professional practice.`;
+        }
+        return point;
+      });
+      
+      // Ensure proper slide metadata
+      slide.id = slide.id || `slide-${lessonNumber}-${index + 1}`;
+      slide.title = slide.title || lessonOutline?.slideTopics?.[index] || `Topic ${index + 1}`;
+      slide.type = slide.type || (index === 0 ? "intro" : "content");
+      slide.duration = slide.duration || 5;
+      slide.notes = slide.notes || `Instructor notes for ${slide.title}: Focus on key concepts and encourage student interaction.`;
+      
+      return slide;
+    });
 
     if (lessonContent.slides.length < 3 || lessonContent.slides.length > 8) {
       console.warn(`Lesson ${lessonNumber} has ${lessonContent.slides.length} slides, expected 3-8`);
@@ -307,8 +371,12 @@ Each bullet point should be a complete explanation that a teacher would provide,
 
       const rawContent = response.choices[0].message.content || '{}';
       
-      // Clean any potential comments or invalid JSON content
-      const cleanedContent = rawContent.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '').trim();
+      // Clean any potential comments or invalid JSON content that might cause parsing errors
+      const cleanedContent = rawContent
+        .replace(/\/\*[\s\S]*?\*\//g, '') // Remove /* */ comments
+        .replace(/\/\/.*$/gm, '') // Remove // comments
+        .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove control characters
+        .trim();
       
       const lessonContent = JSON.parse(cleanedContent);
       

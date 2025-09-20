@@ -631,7 +631,6 @@ export class MemStorage implements IStorage {
         return course;
       }
     }
-    
     return course;
   }
 

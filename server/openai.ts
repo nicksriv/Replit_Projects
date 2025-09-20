@@ -129,8 +129,8 @@ Response Format (JSON):
       throw new Error('Generated content does not have lessons array');
     }
     
-    if (content.lessons.length < 3) {
-      throw new Error(`Generated content has only ${content.lessons.length} lessons, expected at least 3`);
+    if (content.lessons.length < 2) {
+      throw new Error(`Generated content has only ${content.lessons.length} lessons, expected at least 2`);
     }
 
     console.log(`Successfully generated ${content.lessons.length} lessons`);

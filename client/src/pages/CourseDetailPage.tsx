@@ -37,7 +37,7 @@ interface Lesson {
 }
 
 interface Course {
-  id: string;
+  id: number;
   title: string;
   description: string;
   category: string;
@@ -68,6 +68,7 @@ export const CourseDetailPage = (): JSX.Element => {
     queryKey: ["/api/courses", id],
     enabled: !!id,
   });
+
 
   if (isLoading) {
     return (
@@ -124,8 +125,8 @@ export const CourseDetailPage = (): JSX.Element => {
   const canGoNext = currentLessonIndex < lessons.length - 1 || currentSlideIndex < currentLesson?.slides.length - 1;
   const canGoPrev = currentLessonIndex > 0 || currentSlideIndex > 0;
 
-  // If no AI-generated content, show course overview
-  if (!course.aiGenerated || !course.generatedContent) {
+  // If no AI-generated content, show course overview  
+  if (!course.aiGenerated || !course.generatedContent || !course.generatedContent.lessons || course.generatedContent.lessons.length === 0) {
     return (
       <div className="min-h-screen bg-[#f5f6f8] p-6">
         <div className="max-w-4xl mx-auto">

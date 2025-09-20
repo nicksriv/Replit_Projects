@@ -75,34 +75,8 @@ export const CourseDetailPage = (): JSX.Element => {
     enabled: !!id,
   });
 
-
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#f5f6f8] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading course content...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !course) {
-    return (
-      <div className="min-h-screen bg-[#f5f6f8] flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Course Not Found</h2>
-          <p className="text-gray-600 mb-4">The course you're looking for doesn't exist.</p>
-          <Button onClick={() => setLocation("/courses")}>
-            Back to Courses
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  const lessons = course.generatedContent?.lessons || [];
+  // Calculate derived state (safe to call even if course is undefined)
+  const lessons = course?.generatedContent?.lessons || [];
   const currentLesson = lessons[currentLessonIndex];
   const currentSlide = currentLesson?.slides?.[currentSlideIndex];
   
@@ -131,6 +105,77 @@ export const CourseDetailPage = (): JSX.Element => {
 
   const canGoNext = currentLessonIndex < lessons.length - 1 || currentSlideIndex < (currentLesson?.slides?.length || 0) - 1;
   const canGoPrev = currentLessonIndex > 0 || currentSlideIndex > 0;
+
+  const toggleFullScreen = () => {
+    setIsFullScreen(!isFullScreen);
+    if (!isFullScreen) {
+      setIsPlaying(true); // Auto-play when entering full screen
+    }
+  };
+
+  const handlePlayPause = () => {
+    if (!isFullScreen) {
+      // First click enters full screen and starts playing
+      toggleFullScreen();
+    } else {
+      // In full screen, toggle play/pause
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  // Auto-advance slides when playing (moved to top to satisfy hooks rule)
+  useEffect(() => {
+    if (!isPlaying || !currentSlide) return;
+
+    const duration = (currentSlide.duration || 3) * 60 * 1000; // Convert minutes to milliseconds
+    const timer = setTimeout(() => {
+      if (canGoNext) {
+        nextSlide();
+      } else {
+        setIsPlaying(false); // Stop playing at the end
+      }
+    }, duration);
+
+    return () => clearTimeout(timer);
+  }, [isPlaying, currentSlide, canGoNext]);
+
+  // Handle Escape key to exit full screen (moved to top to satisfy hooks rule)
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isFullScreen) {
+        setIsFullScreen(false);
+        setIsPlaying(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isFullScreen]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f5f6f8] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading course content...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !course) {
+    return (
+      <div className="min-h-screen bg-[#f5f6f8] flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Course Not Found</h2>
+          <p className="text-gray-600 mb-4">The course you're looking for doesn't exist.</p>
+          <Button onClick={() => setLocation("/courses")}>
+            Back to Courses
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // If no AI-generated content, show course overview  
   if (!course.aiGenerated || !course.generatedContent || !course.generatedContent.lessons || course.generatedContent.lessons.length === 0) {
@@ -177,51 +222,6 @@ export const CourseDetailPage = (): JSX.Element => {
     );
   }
 
-  const toggleFullScreen = () => {
-    setIsFullScreen(!isFullScreen);
-    if (!isFullScreen) {
-      setIsPlaying(true); // Auto-play when entering full screen
-    }
-  };
-
-  const handlePlayPause = () => {
-    if (!isFullScreen) {
-      // First click enters full screen and starts playing
-      toggleFullScreen();
-    } else {
-      // In full screen, toggle play/pause
-      setIsPlaying(!isPlaying);
-    }
-  };
-
-  // Auto-advance slides when playing
-  useEffect(() => {
-    if (!isPlaying || !currentSlide) return;
-
-    const duration = (currentSlide.duration || 3) * 60 * 1000; // Convert minutes to milliseconds
-    const timer = setTimeout(() => {
-      if (canGoNext) {
-        nextSlide();
-      } else {
-        setIsPlaying(false); // Stop playing at the end
-      }
-    }, duration);
-
-    return () => clearTimeout(timer);
-  }, [isPlaying, currentSlide, canGoNext]);
-
-  // Handle Escape key to exit full screen
-  useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isFullScreen) {
-        setIsFullScreen(false);
-        setIsPlaying(false);
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [isFullScreen]);
 
   return (
     <div className={`min-h-screen ${isFullScreen ? 'fixed inset-0 z-50 bg-black' : 'bg-[#f5f6f8]'}`}>

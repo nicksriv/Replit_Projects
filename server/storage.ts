@@ -612,7 +612,27 @@ export class MemStorage implements IStorage {
 
   // Course methods
   async getCourse(id: number): Promise<Course | undefined> {
-    return this.courses.get(id);
+    const course = this.courses.get(id);
+    
+    if (!course) {
+      return undefined;
+    }
+    
+    // If it's an AI-generated course with slides data, parse the JSON and add generatedContent
+    if (course.aiGenerated && course.slidesData) {
+      try {
+        const generatedContent = JSON.parse(course.slidesData);
+        return {
+          ...course,
+          generatedContent
+        };
+      } catch (error) {
+        console.error('Failed to parse slides data for course', id, error);
+        return course;
+      }
+    }
+    
+    return course;
   }
 
   async getCourses(): Promise<Course[]> {

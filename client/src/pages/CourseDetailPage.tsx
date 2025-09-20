@@ -276,8 +276,9 @@ export const CourseDetailPage = (): JSX.Element => {
       <div className={`flex ${isFullScreen ? 'h-screen' : 'h-[calc(100vh-80px)]'}`}>
         {/* Sidebar - Course Navigation */}
         {!isFullScreen && (
-          <div className={`transition-all duration-300 ease-in-out bg-white border-r border-gray-200 flex-shrink-0 ${sidebarCollapsed ? 'w-0 overflow-hidden' : 'w-80'}`}>
-            <div className={`${sidebarCollapsed ? 'w-0' : 'w-80'} h-full overflow-y-auto transition-all duration-300`}>
+          <div className={`transition-all duration-300 ease-in-out bg-white border-r border-gray-200 flex-shrink-0 ${sidebarCollapsed ? 'w-0 overflow-hidden opacity-0' : 'w-80 opacity-100'}`}>
+            <div className="w-80 h-full overflow-y-auto"
+                 style={{ visibility: sidebarCollapsed ? 'hidden' : 'visible' }}>
               <div className="p-4">
                 <h3 className="font-semibold text-gray-900 mb-4">Course Content</h3>
                 
@@ -379,9 +380,9 @@ export const CourseDetailPage = (): JSX.Element => {
               )}
 
               {/* Slide Content */}
-              <div className={`flex-1 flex items-center justify-center ${isFullScreen ? 'p-12' : 'p-8'}`}>
+              <div className={`flex-1 flex items-start justify-center overflow-y-auto ${isFullScreen ? 'p-12' : 'p-8'}`}>
                 <div className={`w-full ${isFullScreen ? 'max-w-6xl' : 'max-w-4xl'}`}>
-                  <Card className={`shadow-lg ${isFullScreen ? 'min-h-[600px] bg-white/95' : 'min-h-[500px]'}`}>
+                  <Card className={`shadow-lg ${isFullScreen ? 'max-h-[calc(100vh-200px)] bg-white/95' : 'max-h-[calc(100vh-200px)]'}`}>
                     <CardHeader className="pb-6">
                       <div className="flex items-center gap-3 mb-4">
                         <Badge variant="outline" className="text-xs">
@@ -396,13 +397,13 @@ export const CourseDetailPage = (): JSX.Element => {
                         {currentSlide.title}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <div className="space-y-6">
+                    <CardContent className="overflow-y-auto max-h-[calc(100vh-400px)]">
+                      <div className="space-y-4">
                         {Array.isArray(currentSlide.content) ? (
                           currentSlide.content.map((point, idx) => (
                             <div key={idx} className="flex items-start gap-4">
                               <div className="w-3 h-3 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                              <p className={`leading-relaxed ${isFullScreen ? 'text-xl' : 'text-lg'}`}>
+                              <p className={`leading-relaxed ${isFullScreen ? 'text-lg' : 'text-base'}`}>
                                 {point}
                               </p>
                             </div>
@@ -410,7 +411,7 @@ export const CourseDetailPage = (): JSX.Element => {
                         ) : (
                           <div className="flex items-start gap-4">
                             <div className="w-3 h-3 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                            <p className={`leading-relaxed ${isFullScreen ? 'text-xl' : 'text-lg'}`}>
+                            <p className={`leading-relaxed ${isFullScreen ? 'text-lg' : 'text-base'}`}>
                               {currentSlide.content || 'No content available for this slide.'}
                             </p>
                           </div>
@@ -418,12 +419,12 @@ export const CourseDetailPage = (): JSX.Element => {
                       </div>
 
                       {currentSlide.notes && (
-                        <div className="mt-8 p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
-                          <div className="flex items-center gap-2 text-yellow-800 mb-3">
-                            <LightbulbIcon className="h-5 w-5" />
-                            <span className="font-medium">Teaching Notes</span>
+                        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <div className="flex items-center gap-2 text-yellow-800 mb-2">
+                            <LightbulbIcon className="h-4 w-4" />
+                            <span className="font-medium text-sm">Teaching Notes</span>
                           </div>
-                          <p className={`text-yellow-700 ${isFullScreen ? 'text-lg' : 'text-sm'}`}>
+                          <p className={`text-yellow-700 ${isFullScreen ? 'text-base' : 'text-sm'}`}>
                             {currentSlide.notes}
                           </p>
                         </div>

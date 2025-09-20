@@ -276,10 +276,9 @@ export const CourseDetailPage = (): JSX.Element => {
       <div className={`flex ${isFullScreen ? 'h-screen' : 'h-[calc(100vh-80px)]'}`}>
         {/* Sidebar - Course Navigation */}
         {!isFullScreen && (
-          <div className={`transition-all duration-300 ease-in-out bg-white border-r border-gray-200 flex-shrink-0 ${sidebarCollapsed ? 'w-0 overflow-hidden opacity-0' : 'w-80 opacity-100'}`}>
-            <div className="w-80 h-full overflow-y-auto"
-                 style={{ visibility: sidebarCollapsed ? 'hidden' : 'visible' }}>
-              <div className="p-4">
+          <div className={`transition-all duration-300 ease-in-out bg-white border-r border-gray-200 flex-shrink-0 ${sidebarCollapsed ? 'w-0 overflow-hidden' : 'w-80'}`}>
+            <div className={`h-full overflow-y-auto transition-all duration-300 ${sidebarCollapsed ? 'w-0 opacity-0' : 'w-80 opacity-100'}`}>
+              <div className={`p-4 ${sidebarCollapsed ? 'hidden' : 'block'}`}>
                 <h3 className="font-semibold text-gray-900 mb-4">Course Content</h3>
                 
                 {/* Course Overview */}

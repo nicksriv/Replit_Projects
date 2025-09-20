@@ -32,6 +32,12 @@ export const courses = pgTable("courses", {
   duration: integer("duration").notNull(), // in hours
   thumbnail: text("thumbnail"),
   isPublished: boolean("is_published").default(false),
+  // AI-generated content
+  aiGenerated: boolean("ai_generated").default(false),
+  contentType: text("content_type").default("traditional"), // traditional, slide_based
+  slidesData: text("slides_data"), // JSON string containing slides
+  totalLessons: integer("total_lessons").default(0),
+  estimatedMinutes: integer("estimated_minutes").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   instructorId: integer("instructor_id").references(() => users.id),
 });
@@ -50,6 +56,12 @@ export const insertCourseSchema = createInsertSchema(courses).omit({
   duration: z.number().min(1, "Duration must be at least 1 hour").max(200, "Duration must be less than 200 hours"),
   thumbnail: z.string().url().optional().or(z.literal("")),
   isPublished: z.boolean().optional(),
+  // AI content fields
+  aiGenerated: z.boolean().optional(),
+  contentType: z.enum(["traditional", "slide_based"]).optional(),
+  slidesData: z.string().optional(),
+  totalLessons: z.number().min(1).max(50).optional(),
+  estimatedMinutes: z.number().min(1).max(10000).optional(),
 });
 
 export const updateCourseSchema = insertCourseSchema.partial().omit({

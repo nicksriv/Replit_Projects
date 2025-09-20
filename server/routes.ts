@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { log } from "./vite";
+import { generateCourseContent, type CourseOutlineRequest } from "./openai";
 import { 
   insertCourseSchema, 
   updateCourseSchema, 
@@ -108,6 +109,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(course);
     } catch (error) {
       res.status(500).json({ error: "Failed to create course" });
+    }
+  });
+
+  // Generate AI course content
+  app.post("/api/courses/generate", async (req, res) => {
+    try {
+      const schema = z.object({
+        title: z.string().min(3).max(100),
+        description: z.string().min(10).max(500),
+        category: z.string().min(1),
+        level: z.enum(["beginner", "intermediate", "advanced"]),
+        targetDuration: z.number().min(1).max(20),
+        specificRequirements: z.string().optional(),
+      });
+
+      const result = schema.safeParse(req.body);
+      if (!result.success) {
+        const errorMessage = fromZodError(result.error);
+        return res.status(400).json({ error: errorMessage.toString() });
+      }
+
+      const courseRequest: CourseOutlineRequest = result.data;
+      const generatedContent = await generateCourseContent(courseRequest);
+
+      res.json(generatedContent);
+    } catch (error) {
+      log(`Course generation failed: ${error}`);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to generate course content" 
+      });
+    }
+  });
+
+  // Create course with AI-generated content
+  app.post("/api/courses/create-with-ai", async (req, res) => {
+    try {
+      const schema = z.object({
+        title: z.string().min(3).max(100),
+        description: z.string().min(10).max(500),
+        category: z.string().min(1),
+        level: z.enum(["beginner", "intermediate", "advanced"]),
+        price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0),
+        targetDuration: z.number().min(1).max(20),
+        specificRequirements: z.string().optional(),
+        thumbnail: z.string().url().optional().or(z.literal("")),
+        isPublished: z.boolean().optional(),
+      });
+
+      const result = schema.safeParse(req.body);
+      if (!result.success) {
+        const errorMessage = fromZodError(result.error);
+        return res.status(400).json({ error: errorMessage.toString() });
+      }
+
+      const data = result.data;
+      const instructorId = 1; // TODO: Get from session
+
+      // Generate AI content
+      const courseRequest: CourseOutlineRequest = {
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        level: data.level,
+        targetDuration: data.targetDuration,
+        specificRequirements: data.specificRequirements,
+      };
+
+      const generatedContent = await generateCourseContent(courseRequest);
+
+      // Create course with AI-generated content
+      const courseData = {
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        level: data.level,
+        price: data.price,
+        duration: Math.round(generatedContent.totalDuration / 60), // Convert minutes to hours
+        thumbnail: data.thumbnail || "",
+        isPublished: data.isPublished || false,
+        aiGenerated: true,
+        contentType: "slide_based" as const,
+        slidesData: JSON.stringify(generatedContent),
+        totalLessons: generatedContent.lessons.length,
+        estimatedMinutes: generatedContent.totalDuration,
+      };
+
+      const course = await storage.createCourse(courseData, instructorId);
+      res.status(201).json({ course, generatedContent });
+    } catch (error) {
+      log(`AI course creation failed: ${error}`);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to create AI-powered course" 
+      });
     }
   });
 

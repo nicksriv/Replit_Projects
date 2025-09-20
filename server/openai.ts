@@ -53,6 +53,15 @@ export async function generateCourseContent(request: CourseOutlineRequest): Prom
   // Step 1: Generate course outline and structure
   const courseOutline = await generateCourseOutline(request);
   
+  // Validate courseOutline structure
+  if (!courseOutline || !courseOutline.lessons || !Array.isArray(courseOutline.lessons)) {
+    throw new Error('Invalid course outline structure: missing or invalid lessons array');
+  }
+  
+  if (courseOutline.lessons.length === 0) {
+    throw new Error('No lessons generated in course outline');
+  }
+  
   // Step 2: Generate detailed content for each lesson
   const detailedLessons = await Promise.all(
     courseOutline.lessons.map((lesson: any, index: number) => 
@@ -93,11 +102,11 @@ Provide course-level information and lesson structure (without detailed slide co
       messages: [
         {
           role: "system",
-          content: "You are an expert instructional designer. Create course outlines with clear structure and learning progression. Respond with valid JSON only."
+          content: "You are an expert instructional designer. Create course outlines with clear structure and learning progression. You must respond with valid JSON only. Do not include comments or explanatory text outside the JSON structure."
         },
         {
           role: "user",
-          content: `${prompt}\n\nReturn JSON with this structure:
+          content: `${prompt}\n\nReturn valid JSON with this exact structure. Do not include any comments or additional text:
 {
   "lessons": [
     {
@@ -121,26 +130,55 @@ Provide course-level information and lesson structure (without detailed slide co
       max_tokens: 2000
     });
 
-    return JSON.parse(response.choices[0].message.content || '{}');
+    const rawContent = response.choices[0].message.content || '{}';
+    
+    // Clean any potential comments or invalid JSON content
+    const cleanedContent = rawContent.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '').trim();
+    
+    const parsed = JSON.parse(cleanedContent);
+    
+    // Validate the structure
+    if (!parsed.lessons || !Array.isArray(parsed.lessons) || parsed.lessons.length === 0) {
+      throw new Error('Invalid response: missing or empty lessons array');
+    }
+    
+    return parsed;
   } catch (error) {
     console.log('Falling back to gpt-4 for course outline...');
     // Fallback to GPT-4
-    const response = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert instructional designer. Create course outlines with clear structure and learning progression. Respond with valid JSON only."
-        },
-        {
-          role: "user",
-          content: `${prompt}\n\nReturn JSON with lessons array, outline, learningObjectives, prerequisites, and targetAudience.`
-        }
-      ],
-      max_tokens: 2000
-    });
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert instructional designer. Create course outlines with clear structure and learning progression. You must respond with valid JSON only. Do not include comments or explanatory text outside the JSON structure."
+          },
+          {
+            role: "user",
+            content: `${prompt}\n\nReturn valid JSON with lessons array, outline, learningObjectives, prerequisites, and targetAudience. Do not include any comments in the JSON.`
+          }
+        ],
+        max_tokens: 2000
+      });
 
-    return JSON.parse(response.choices[0].message.content || '{}');
+      const rawContent = response.choices[0].message.content || '{}';
+      
+      // Clean any potential comments or invalid JSON content
+      const cleanedContent = rawContent.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '').trim();
+      
+      const parsed = JSON.parse(cleanedContent);
+      
+      // Validate the structure
+      if (!parsed.lessons || !Array.isArray(parsed.lessons) || parsed.lessons.length === 0) {
+        throw new Error('Invalid response: missing or empty lessons array');
+      }
+      
+      return parsed;
+    } catch (fallbackError) {
+      console.error('Both GPT-5 and GPT-4 failed for course outline generation:', fallbackError);
+      throw new Error('Failed to generate course outline with both models');
+    }
   }
 }
 
@@ -178,18 +216,18 @@ Each bullet point should be a complete explanation that a teacher would provide,
       messages: [
         {
           role: "system",
-          content: "You are an experienced teacher and instructional designer. Create detailed, engaging educational content with teacher-like explanations, practical examples, and comprehensive reasoning. Respond with valid JSON only."
+          content: "You are an experienced teacher and instructional designer. Create detailed, engaging educational content with teacher-like explanations, practical examples, and comprehensive reasoning. You must respond with valid JSON only. Do not include comments or explanatory text outside the JSON structure."
         },
         {
           role: "user",
-          content: `${prompt}\n\nReturn JSON with this exact structure:
+          content: `${prompt}\n\nReturn valid JSON with this exact structure. Do not include any comments:
 {
   "id": "lesson-${lessonNumber}",
-  "title": "${lessonOutline.title}",
-  "description": "${lessonOutline.description}",
-  "duration": ${lessonOutline.duration || 45},
-  "objectives": ${JSON.stringify(lessonOutline.objectives || [])},
-  "keyTakeaways": ${JSON.stringify(lessonOutline.keyTakeaways || [])},
+  "title": "${lessonOutline?.title || `Lesson ${lessonNumber}`}",
+  "description": "${lessonOutline?.description || `Lesson ${lessonNumber} content`}",
+  "duration": ${lessonOutline?.duration || 45},
+  "objectives": ${JSON.stringify(lessonOutline?.objectives || [`Learn key concepts for lesson ${lessonNumber}`])},
+  "keyTakeaways": ${JSON.stringify(lessonOutline?.keyTakeaways || [`Key insights from lesson ${lessonNumber}`])},
   "slides": [
     {
       "id": "slide-${lessonNumber}-1",
@@ -212,37 +250,106 @@ Each bullet point should be a complete explanation that a teacher would provide,
       max_tokens: 3000
     });
 
-    const lessonContent = JSON.parse(response.choices[0].message.content || '{}');
+    const rawContent = response.choices[0].message.content || '{}';
+    
+    // Clean any potential comments or invalid JSON content
+    const cleanedContent = rawContent.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '').trim();
+    
+    const lessonContent = JSON.parse(cleanedContent);
     
     // Validate lesson structure
     if (!lessonContent.slides || !Array.isArray(lessonContent.slides)) {
       throw new Error(`Lesson ${lessonNumber} missing slides array`);
     }
 
-    if (lessonContent.slides.length < 4 || lessonContent.slides.length > 8) {
-      console.warn(`Lesson ${lessonNumber} has ${lessonContent.slides.length} slides, expected 4-8`);
+    if (lessonContent.slides.length === 0) {
+      throw new Error(`Lesson ${lessonNumber} has no slides`);
+    }
+
+    if (lessonContent.slides.length < 3 || lessonContent.slides.length > 8) {
+      console.warn(`Lesson ${lessonNumber} has ${lessonContent.slides.length} slides, expected 3-8`);
     }
 
     return lessonContent as CourseLesson;
   } catch (error) {
     console.log(`Falling back to gpt-4 for lesson ${lessonNumber}...`);
     // Fallback to GPT-4
-    const response = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: "You are an experienced teacher. Create detailed educational content with comprehensive explanations. Respond with valid JSON only."
-        },
-        {
-          role: "user",
-          content: `${prompt}\n\nCreate a detailed lesson with slides array containing comprehensive content.`
-        }
-      ],
-      max_tokens: 3000
-    });
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: "You are an experienced teacher. Create detailed educational content with comprehensive explanations. You must respond with valid JSON only. Do not include comments or explanatory text outside the JSON structure."
+          },
+          {
+            role: "user",
+            content: `${prompt}\n\nCreate a detailed lesson with slides array containing comprehensive content. Do not include any comments in the JSON.`
+          }
+        ],
+        max_tokens: 3000
+      });
 
-    return JSON.parse(response.choices[0].message.content || '{}') as CourseLesson;
+      const rawContent = response.choices[0].message.content || '{}';
+      
+      // Clean any potential comments or invalid JSON content
+      const cleanedContent = rawContent.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '').trim();
+      
+      const lessonContent = JSON.parse(cleanedContent);
+      
+      // Validate lesson structure and provide defaults if missing
+      if (!lessonContent.slides || !Array.isArray(lessonContent.slides)) {
+        console.warn(`Lesson ${lessonNumber} fallback missing slides, creating default slide`);
+        lessonContent.slides = [{
+          id: `slide-${lessonNumber}-1`,
+          title: `${lessonOutline?.title || `Lesson ${lessonNumber}`} - Introduction`,
+          type: "intro",
+          duration: 5,
+          content: [
+            `Introduction to ${lessonOutline?.title || `Lesson ${lessonNumber}`}`,
+            "This lesson covers the fundamental concepts",
+            "We'll explore practical applications",
+            "By the end, you'll understand key principles"
+          ],
+          notes: "This is a generated slide due to AI generation issues. Please review and update the content."
+        }];
+      }
+      
+      // Ensure required fields exist
+      lessonContent.id = lessonContent.id || `lesson-${lessonNumber}`;
+      lessonContent.title = lessonContent.title || lessonOutline?.title || `Lesson ${lessonNumber}`;
+      lessonContent.description = lessonContent.description || lessonOutline?.description || `Content for lesson ${lessonNumber}`;
+      lessonContent.duration = lessonContent.duration || lessonOutline?.duration || 45;
+      lessonContent.objectives = lessonContent.objectives || lessonOutline?.objectives || [`Learn key concepts for lesson ${lessonNumber}`];
+      lessonContent.keyTakeaways = lessonContent.keyTakeaways || lessonOutline?.keyTakeaways || [`Key insights from lesson ${lessonNumber}`];
+
+      return lessonContent as CourseLesson;
+    } catch (fallbackError) {
+      console.error(`Both GPT-5 and GPT-4 failed for lesson ${lessonNumber}:`, fallbackError);
+      
+      // Create a minimal fallback lesson to prevent complete failure
+      return {
+        id: `lesson-${lessonNumber}`,
+        title: lessonOutline?.title || `Lesson ${lessonNumber}`,
+        description: lessonOutline?.description || `Content for lesson ${lessonNumber}`,
+        duration: lessonOutline?.duration || 45,
+        objectives: lessonOutline?.objectives || [`Learn key concepts for lesson ${lessonNumber}`],
+        keyTakeaways: lessonOutline?.keyTakeaways || [`Key insights from lesson ${lessonNumber}`],
+        slides: [{
+          id: `slide-${lessonNumber}-1`,
+          title: `${lessonOutline?.title || `Lesson ${lessonNumber}`} - Introduction`,
+          type: "intro" as const,
+          duration: 5,
+          content: [
+            `Introduction to ${lessonOutline?.title || `Lesson ${lessonNumber}`}`,
+            "This lesson covers the fundamental concepts",
+            "We'll explore practical applications",
+            "By the end, you'll understand key principles"
+          ],
+          notes: "This is a fallback slide due to AI generation issues. Please review and update the content."
+        }]
+      } as CourseLesson;
+    }
   }
 }
 

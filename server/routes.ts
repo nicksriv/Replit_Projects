@@ -199,9 +199,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({ course, generatedContent });
     } catch (error) {
       log(`AI course creation failed: ${error}`);
-      res.status(500).json({ 
-        error: error instanceof Error ? error.message : "Failed to create AI-powered course" 
-      });
+      
+      // Check if it's an OpenAI quota/rate limit error
+      if (error instanceof Error && (error.message.includes('quota') || error.message.includes('rate limit'))) {
+        res.status(429).json({ 
+          error: "OpenAI API quota exceeded. Please check your OpenAI account billing and usage limits, or try again later.",
+          type: "quota_exceeded"
+        });
+      } else {
+        res.status(500).json({ 
+          error: error instanceof Error ? error.message : "Failed to create AI-powered course" 
+        });
+      }
     }
   });
 

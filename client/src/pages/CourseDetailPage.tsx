@@ -275,9 +275,9 @@ export const CourseDetailPage = (): JSX.Element => {
 
       <div className={`flex ${isFullScreen ? 'h-screen' : 'h-[calc(100vh-80px)]'}`}>
         {/* Sidebar - Course Navigation */}
-        {!isFullScreen && (
-          <div className={`${sidebarCollapsed ? 'w-0' : 'w-80'} bg-white ${sidebarCollapsed ? '' : 'border-r border-gray-200'} overflow-hidden transition-all duration-300 flex-shrink-0`}>
-            <div className={`w-80 h-full overflow-y-auto transition-opacity duration-300 ${sidebarCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        {!isFullScreen && !sidebarCollapsed && (
+          <div className="w-80 bg-white border-r border-gray-200 flex-shrink-0">
+            <div className="w-80 h-full overflow-y-auto">
               <div className="p-4">
                 <h3 className="font-semibold text-gray-900 mb-4">Course Content</h3>
                 

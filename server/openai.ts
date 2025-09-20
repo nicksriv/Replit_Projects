@@ -48,10 +48,32 @@ export interface GeneratedCourseContent {
 }
 
 export async function generateCourseContent(request: CourseOutlineRequest): Promise<GeneratedCourseContent> {
-  console.log('Starting course content generation for:', request.title);
+  console.log('Starting hierarchical course content generation for:', request.title);
   
-  // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-  const prompt = `Create a comprehensive, professional ${request.level} level course on "${request.title}".
+  // Step 1: Generate course outline and structure
+  const courseOutline = await generateCourseOutline(request);
+  
+  // Step 2: Generate detailed content for each lesson
+  const detailedLessons = await Promise.all(
+    courseOutline.lessons.map((lesson: any, index: number) => 
+      generateDetailedLesson(lesson, request, index + 1, courseOutline.outline)
+    )
+  );
+
+  // Step 3: Calculate total duration and compile final content
+  const totalDuration = detailedLessons.reduce((sum, lesson) => sum + lesson.duration, 0);
+
+  return {
+    ...courseOutline,
+    lessons: detailedLessons,
+    totalDuration
+  };
+}
+
+async function generateCourseOutline(request: CourseOutlineRequest) {
+  console.log('Generating course outline...');
+  
+  const prompt = `Create a comprehensive course outline for "${request.title}".
 
 Course Details:
 - Description: ${request.description}
@@ -60,90 +82,172 @@ Course Details:
 - Level: ${request.level}
 ${request.specificRequirements ? `- Special Requirements: ${request.specificRequirements}` : ''}
 
-Create a course with EXACTLY 6 lessons, each containing 4-8 slides. Each lesson should be substantial and educational.
+Create EXACTLY 6 lessons with logical progression. Each lesson should have 5-7 slides covering different aspects.
 
-Requirements:
-1. Professional, engaging content suitable for adult learners
-2. Clear learning progression from basic to advanced concepts
-3. Each slide should have 3-5 key points or bullet points
-4. Include practical examples and real-world applications
-5. Ensure content is accurate, up-to-date, and industry-relevant
-6. Each lesson should have clear objectives and key takeaways
+Provide course-level information and lesson structure (without detailed slide content).`;
 
-Response Format (JSON):
+  // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-5", // Prefer gpt-5, will fallback to gpt-4 if needed
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert instructional designer. Create course outlines with clear structure and learning progression. Respond with valid JSON only."
+        },
+        {
+          role: "user",
+          content: `${prompt}\n\nReturn JSON with this structure:
 {
   "lessons": [
     {
       "id": "lesson-1",
       "title": "Lesson Title",
-      "description": "Brief lesson description",
+      "description": "Brief description",
       "duration": 45,
-      "objectives": ["Learning objective 1", "Learning objective 2"],
-      "keyTakeaways": ["Key takeaway 1", "Key takeaway 2"],
-      "slides": [
-        {
-          "id": "slide-1-1",
-          "title": "Slide Title",
-          "type": "intro",
-          "duration": 8,
-          "content": ["Key point 1", "Key point 2", "Key point 3"],
-          "notes": "Additional instructor notes"
-        }
-      ]
+      "objectives": ["Objective 1", "Objective 2"],
+      "keyTakeaways": ["Takeaway 1", "Takeaway 2"],
+      "slideTopics": ["Topic 1", "Topic 2", "Topic 3", "Topic 4", "Topic 5"]
     }
   ],
-  "totalDuration": 270,
-  "outline": "Course outline summary",
+  "outline": "Course overview",
   "learningObjectives": ["Overall objective 1", "Overall objective 2"],
-  "prerequisites": ["Prerequisite 1", "Prerequisite 2"],
-  "targetAudience": "Description of target audience"
-}`;
+  "prerequisites": ["Prerequisite 1"],
+  "targetAudience": "Target audience description"
+}`
+        }
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 2000
+    });
 
-  try {
-    console.log('Making OpenAI API call...');
-    
-    // Try with GPT-4 as a fallback since GPT-5 might not be available
+    return JSON.parse(response.choices[0].message.content || '{}');
+  } catch (error) {
+    console.log('Falling back to gpt-4 for course outline...');
+    // Fallback to GPT-4
     const response = await openai.chat.completions.create({
-      model: "gpt-4", // Using GPT-4 as fallback
+      model: "gpt-4",
       messages: [
         {
           role: "system",
-          content: "You are an expert instructional designer and course creator. Create professional, engaging educational content with clear learning progression. You MUST respond with valid JSON only, no additional text before or after the JSON."
+          content: "You are an expert instructional designer. Create course outlines with clear structure and learning progression. Respond with valid JSON only."
         },
         {
           role: "user",
-          content: prompt + "\n\nIMPORTANT: Respond with valid JSON only, following the exact format specified above. Do not include any text before or after the JSON object."
+          content: `${prompt}\n\nReturn JSON with lessons array, outline, learningObjectives, prerequisites, and targetAudience.`
         }
       ],
-      max_tokens: 4000
+      max_tokens: 2000
     });
 
-    console.log('OpenAI API call completed successfully');
-    
-    const content = JSON.parse(response.choices[0].message.content || '{}');
-    
-    console.log('Generated content parsed, validating structure...');
-    
-    // Validate and ensure proper structure
-    if (!content.lessons || !Array.isArray(content.lessons)) {
-      throw new Error('Generated content does not have lessons array');
+    return JSON.parse(response.choices[0].message.content || '{}');
+  }
+}
+
+async function generateDetailedLesson(
+  lessonOutline: any,
+  request: CourseOutlineRequest,
+  lessonNumber: number,
+  courseContext: string
+): Promise<CourseLesson> {
+  console.log(`Generating detailed content for lesson ${lessonNumber}: ${lessonOutline.title}`);
+
+  const prompt = `Create detailed, teacher-like content for this lesson:
+
+Lesson: ${lessonOutline.title}
+Description: ${lessonOutline.description}
+Slide Topics: ${lessonOutline.slideTopics?.join(', ') || 'Not specified'}
+Course Context: ${courseContext}
+Course Level: ${request.level}
+
+Create EXACTLY ${lessonOutline.slideTopics?.length || 5} slides with comprehensive, teacher-like explanations.
+
+Requirements for each slide:
+1. 4-6 detailed, explanatory bullet points with context and reasoning
+2. Use pedagogical techniques: analogies, examples, step-by-step breakdowns
+3. Explain WHY concepts matter, not just WHAT they are
+4. Include practical applications and real-world examples
+5. Comprehensive instructor notes with teaching tips, common misconceptions, discussion prompts
+6. Professional, conversational tone suitable for adult learners
+
+Each bullet point should be a complete explanation that a teacher would provide, with sufficient detail for self-study.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-5",
+      messages: [
+        {
+          role: "system",
+          content: "You are an experienced teacher and instructional designer. Create detailed, engaging educational content with teacher-like explanations, practical examples, and comprehensive reasoning. Respond with valid JSON only."
+        },
+        {
+          role: "user",
+          content: `${prompt}\n\nReturn JSON with this exact structure:
+{
+  "id": "lesson-${lessonNumber}",
+  "title": "${lessonOutline.title}",
+  "description": "${lessonOutline.description}",
+  "duration": ${lessonOutline.duration || 45},
+  "objectives": ${JSON.stringify(lessonOutline.objectives || [])},
+  "keyTakeaways": ${JSON.stringify(lessonOutline.keyTakeaways || [])},
+  "slides": [
+    {
+      "id": "slide-${lessonNumber}-1",
+      "title": "Slide Title",
+      "type": "intro",
+      "duration": 8,
+      "content": [
+        "Comprehensive explanation with context...",
+        "Detailed point with examples...",
+        "In-depth concept with reasoning...",
+        "Advanced insight with frameworks..."
+      ],
+      "notes": "Comprehensive instructor notes with teaching guidance..."
     }
+  ]
+}`
+        }
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 3000
+    });
+
+    const lessonContent = JSON.parse(response.choices[0].message.content || '{}');
     
-    if (content.lessons.length < 2) {
-      throw new Error(`Generated content has only ${content.lessons.length} lessons, expected at least 2`);
+    // Validate lesson structure
+    if (!lessonContent.slides || !Array.isArray(lessonContent.slides)) {
+      throw new Error(`Lesson ${lessonNumber} missing slides array`);
     }
 
-    console.log(`Successfully generated ${content.lessons.length} lessons`);
-    
-    return content as GeneratedCourseContent;
+    if (lessonContent.slides.length < 4 || lessonContent.slides.length > 8) {
+      console.warn(`Lesson ${lessonNumber} has ${lessonContent.slides.length} slides, expected 4-8`);
+    }
+
+    return lessonContent as CourseLesson;
   } catch (error) {
-    console.error('Course generation error:', error);
-    throw new Error(`Failed to generate course content: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.log(`Falling back to gpt-4 for lesson ${lessonNumber}...`);
+    // Fallback to GPT-4
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        {
+          role: "system",
+          content: "You are an experienced teacher. Create detailed educational content with comprehensive explanations. Respond with valid JSON only."
+        },
+        {
+          role: "user",
+          content: `${prompt}\n\nCreate a detailed lesson with slides array containing comprehensive content.`
+        }
+      ],
+      max_tokens: 3000
+    });
+
+    return JSON.parse(response.choices[0].message.content || '{}') as CourseLesson;
   }
 }
 
 export async function enhanceLessonContent(lesson: CourseLesson, context: string): Promise<CourseLesson> {
-  const prompt = `Enhance this lesson with more detailed, professional content while maintaining the same structure.
+  const prompt = `Enhance this lesson with much more detailed, teacher-like explanations while maintaining the same structure.
 
 Context: ${context}
 
@@ -151,11 +255,18 @@ Current Lesson:
 ${JSON.stringify(lesson, null, 2)}
 
 Enhance by:
-1. Adding more depth to slide content
-2. Including practical examples
-3. Adding real-world applications
-4. Ensuring professional language
-5. Making content more engaging
+1. Adding comprehensive depth to slide content with detailed explanations
+2. Including multiple practical examples, case studies, and real-world applications
+3. Providing step-by-step reasoning and background context for each concept
+4. Adding analogies, comparisons, and frameworks for better understanding
+5. Including common misconceptions and how to avoid them
+6. Making content more engaging with conversational, teacher-like tone
+7. Expanding instructor notes with comprehensive teaching guidance, discussion prompts, and additional insights
+8. Adding memory aids, mnemonics, or structured approaches where helpful
+9. Ensuring progressive skill building with clear connections between concepts
+10. Including reflection questions and thought-provoking insights
+
+Transform each bullet point into a comprehensive explanation that a teacher would provide, with sufficient detail for self-study while remaining engaging and accessible.
 
 IMPORTANT: Return the enhanced lesson in the same JSON format. Respond with valid JSON only, no additional text.`;
 
@@ -165,7 +276,7 @@ IMPORTANT: Return the enhanced lesson in the same JSON format. Respond with vali
       messages: [
         {
           role: "system",
-          content: "You are an expert instructional designer. Enhance educational content to be more professional, detailed, and engaging while maintaining the structure. You MUST respond with valid JSON only."
+          content: "You are an expert instructional designer and experienced teacher with deep pedagogical knowledge. Transform educational content into comprehensive, teacher-like explanations with detailed reasoning, context, and practical applications. You MUST respond with valid JSON only."
         },
         {
           role: "user",
@@ -199,7 +310,7 @@ Style: Clean, modern, educational, professional presentation style. Use corporat
       quality: "standard"
     });
 
-    return response.data[0]?.url || '';
+    return response.data?.[0]?.url || '';
   } catch (error) {
     throw new Error(`Failed to generate slide image: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }

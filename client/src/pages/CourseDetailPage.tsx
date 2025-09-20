@@ -104,14 +104,14 @@ export const CourseDetailPage = (): JSX.Element => {
 
   const lessons = course.generatedContent?.lessons || [];
   const currentLesson = lessons[currentLessonIndex];
-  const currentSlide = currentLesson?.slides[currentSlideIndex];
+  const currentSlide = currentLesson?.slides?.[currentSlideIndex];
   
-  const totalSlides = lessons.reduce((acc, lesson) => acc + lesson.slides.length, 0);
-  const currentSlideNumber = lessons.slice(0, currentLessonIndex).reduce((acc, lesson) => acc + lesson.slides.length, 0) + currentSlideIndex + 1;
-  const progress = (currentSlideNumber / totalSlides) * 100;
+  const totalSlides = lessons.reduce((acc, lesson) => acc + (lesson.slides?.length || 0), 0);
+  const currentSlideNumber = lessons.slice(0, currentLessonIndex).reduce((acc, lesson) => acc + (lesson.slides?.length || 0), 0) + currentSlideIndex + 1;
+  const progress = totalSlides > 0 ? (currentSlideNumber / totalSlides) * 100 : 0;
 
   const nextSlide = () => {
-    if (currentSlideIndex < currentLesson.slides.length - 1) {
+    if (currentSlideIndex < (currentLesson?.slides?.length || 0) - 1) {
       setCurrentSlideIndex(currentSlideIndex + 1);
     } else if (currentLessonIndex < lessons.length - 1) {
       setCurrentLessonIndex(currentLessonIndex + 1);
@@ -125,11 +125,11 @@ export const CourseDetailPage = (): JSX.Element => {
     } else if (currentLessonIndex > 0) {
       setCurrentLessonIndex(currentLessonIndex - 1);
       const prevLesson = lessons[currentLessonIndex - 1];
-      setCurrentSlideIndex(prevLesson.slides.length - 1);
+      setCurrentSlideIndex((prevLesson?.slides?.length || 1) - 1);
     }
   };
 
-  const canGoNext = currentLessonIndex < lessons.length - 1 || currentSlideIndex < currentLesson?.slides.length - 1;
+  const canGoNext = currentLessonIndex < lessons.length - 1 || currentSlideIndex < (currentLesson?.slides?.length || 0) - 1;
   const canGoPrev = currentLessonIndex > 0 || currentSlideIndex > 0;
 
   // If no AI-generated content, show course overview  
@@ -309,7 +309,7 @@ export const CourseDetailPage = (): JSX.Element => {
                       >
                         <div className="font-medium text-sm">{lesson.title}</div>
                         <div className="text-xs text-gray-500 mt-1">
-                          {lesson.slides.length} slides • {lesson.duration}min
+                          {lesson.slides?.length || 0} slides • {lesson.duration}min
                         </div>
                       </div>
                       
@@ -450,7 +450,7 @@ export const CourseDetailPage = (): JSX.Element => {
                     
                     {!isFullScreen && (
                       <div className="text-sm text-gray-500">
-                        Slide {currentSlideIndex + 1} of {currentLesson?.slides.length}
+                        Slide {currentSlideIndex + 1} of {currentLesson?.slides?.length || 0}
                       </div>
                     )}
                   </div>

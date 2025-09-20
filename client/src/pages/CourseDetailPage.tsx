@@ -14,7 +14,11 @@ import {
   BookOpenIcon,
   ClockIcon,
   TargetIcon,
-  LightbulbIcon
+  LightbulbIcon,
+  MenuIcon,
+  XIcon,
+  MaximizeIcon,
+  MinimizeIcon
 } from "lucide-react";
 
 interface Slide {
@@ -63,6 +67,8 @@ export const CourseDetailPage = (): JSX.Element => {
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   const { data: course, isLoading, error } = useQuery<Course>({
     queryKey: [`/api/courses/${id}`],

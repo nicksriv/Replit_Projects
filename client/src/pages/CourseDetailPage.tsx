@@ -387,14 +387,23 @@ export const CourseDetailPage = (): JSX.Element => {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-6">
-                        {currentSlide.content.map((point, idx) => (
-                          <div key={idx} className="flex items-start gap-4">
+                        {Array.isArray(currentSlide.content) ? (
+                          currentSlide.content.map((point, idx) => (
+                            <div key={idx} className="flex items-start gap-4">
+                              <div className="w-3 h-3 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                              <p className={`leading-relaxed ${isFullScreen ? 'text-xl' : 'text-lg'}`}>
+                                {point}
+                              </p>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex items-start gap-4">
                             <div className="w-3 h-3 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
                             <p className={`leading-relaxed ${isFullScreen ? 'text-xl' : 'text-lg'}`}>
-                              {point}
+                              {currentSlide.content || 'No content available for this slide.'}
                             </p>
                           </div>
-                        ))}
+                        )}
                       </div>
 
                       {currentSlide.notes && (

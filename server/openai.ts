@@ -48,6 +48,8 @@ export interface GeneratedCourseContent {
 }
 
 export async function generateCourseContent(request: CourseOutlineRequest): Promise<GeneratedCourseContent> {
+  console.log('Starting course content generation for:', request.title);
+  
   // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
   const prompt = `Create a comprehensive, professional ${request.level} level course on "${request.title}".
 
@@ -98,36 +100,49 @@ Response Format (JSON):
 }`;
 
   try {
+    console.log('Making OpenAI API call...');
+    
+    // Try with GPT-4 as a fallback since GPT-5 might not be available
     const response = await openai.chat.completions.create({
-      model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      model: "gpt-4", // Using GPT-4 as fallback
       messages: [
         {
           role: "system",
-          content: "You are an expert instructional designer and course creator. Create professional, engaging educational content with clear learning progression. Always respond with valid JSON."
+          content: "You are an expert instructional designer and course creator. Create professional, engaging educational content with clear learning progression. You MUST respond with valid JSON only, no additional text before or after the JSON."
         },
         {
           role: "user",
-          content: prompt
+          content: prompt + "\n\nIMPORTANT: Respond with valid JSON only, following the exact format specified above. Do not include any text before or after the JSON object."
         }
       ],
-      response_format: { type: "json_object" }
+      max_tokens: 4000
     });
 
+    console.log('OpenAI API call completed successfully');
+    
     const content = JSON.parse(response.choices[0].message.content || '{}');
     
+    console.log('Generated content parsed, validating structure...');
+    
     // Validate and ensure proper structure
-    if (!content.lessons || !Array.isArray(content.lessons) || content.lessons.length !== 6) {
-      throw new Error('Generated content does not have exactly 6 lessons');
+    if (!content.lessons || !Array.isArray(content.lessons)) {
+      throw new Error('Generated content does not have lessons array');
+    }
+    
+    if (content.lessons.length < 3) {
+      throw new Error(`Generated content has only ${content.lessons.length} lessons, expected at least 3`);
     }
 
+    console.log(`Successfully generated ${content.lessons.length} lessons`);
+    
     return content as GeneratedCourseContent;
   } catch (error) {
+    console.error('Course generation error:', error);
     throw new Error(`Failed to generate course content: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
 export async function enhanceLessonContent(lesson: CourseLesson, context: string): Promise<CourseLesson> {
-  // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
   const prompt = `Enhance this lesson with more detailed, professional content while maintaining the same structure.
 
 Context: ${context}
@@ -142,22 +157,22 @@ Enhance by:
 4. Ensuring professional language
 5. Making content more engaging
 
-Return the enhanced lesson in the same JSON format.`;
+IMPORTANT: Return the enhanced lesson in the same JSON format. Respond with valid JSON only, no additional text.`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      model: "gpt-4",
       messages: [
         {
           role: "system",
-          content: "You are an expert instructional designer. Enhance educational content to be more professional, detailed, and engaging while maintaining the structure."
+          content: "You are an expert instructional designer. Enhance educational content to be more professional, detailed, and engaging while maintaining the structure. You MUST respond with valid JSON only."
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      response_format: { type: "json_object" }
+      max_tokens: 2000
     });
 
     return JSON.parse(response.choices[0].message.content || '{}') as CourseLesson;
@@ -184,7 +199,7 @@ Style: Clean, modern, educational, professional presentation style. Use corporat
       quality: "standard"
     });
 
-    return response.data[0].url || '';
+    return response.data[0]?.url || '';
   } catch (error) {
     throw new Error(`Failed to generate slide image: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }

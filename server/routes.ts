@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { log } from "./vite";
 import { generateCourseContent, type CourseOutlineRequest } from "./openai";
+import { createSCORMPackage, createCoursePDF } from "./exports";
+import { CourseLesson } from "@shared/types";
 import { 
   insertCourseSchema, 
   updateCourseSchema, 
@@ -138,6 +140,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
       log(`Course generation failed: ${error}`);
       res.status(500).json({ 
         error: error instanceof Error ? error.message : "Failed to generate course content" 
+      });
+    }
+  });
+
+  // Export course as SCORM package
+  app.get("/api/courses/:id/export/scorm", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid course ID" });
+      }
+      
+      const course = await storage.getCourse(id);
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      
+      // Parse the generated content from the course
+      let lessons: CourseLesson[] = [];
+      if (course.slidesData) {
+        try {
+          const parsedData = JSON.parse(course.slidesData);
+          lessons = parsedData.lessons || [];
+        } catch (error) {
+          console.error('Failed to parse course slides data:', error);
+        }
+      }
+      
+      // Fallback to generatedContent if slidesData is not available
+      if (lessons.length === 0 && (course as any).generatedContent?.lessons) {
+        lessons = (course as any).generatedContent.lessons;
+      }
+      
+      if (lessons.length === 0) {
+        return res.status(400).json({ error: "Course has no content to export" });
+      }
+      
+      const scormBuffer = await createSCORMPackage(course, lessons);
+      
+      const filename = `${course.title.replace(/[^a-zA-Z0-9]/g, '_')}_SCORM.zip`;
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', scormBuffer.length);
+      
+      res.send(scormBuffer);
+    } catch (error) {
+      log(`SCORM export failed: ${error}`);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to export SCORM package" 
+      });
+    }
+  });
+
+  // Export course as PDF
+  app.get("/api/courses/:id/export/pdf", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid course ID" });
+      }
+      
+      const course = await storage.getCourse(id);
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      
+      // Parse the generated content from the course
+      let lessons: CourseLesson[] = [];
+      if (course.slidesData) {
+        try {
+          const parsedData = JSON.parse(course.slidesData);
+          lessons = parsedData.lessons || [];
+        } catch (error) {
+          console.error('Failed to parse course slides data:', error);
+        }
+      }
+      
+      // Fallback to generatedContent if slidesData is not available
+      if (lessons.length === 0 && (course as any).generatedContent?.lessons) {
+        lessons = (course as any).generatedContent.lessons;
+      }
+      
+      if (lessons.length === 0) {
+        return res.status(400).json({ error: "Course has no content to export" });
+      }
+      
+      const pdfBuffer = await createCoursePDF(course, lessons);
+      
+      const filename = `${course.title.replace(/[^a-zA-Z0-9]/g, '_')}_Slides.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      
+      res.send(pdfBuffer);
+    } catch (error) {
+      log(`PDF export failed: ${error}`);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to export PDF" 
       });
     }
   });

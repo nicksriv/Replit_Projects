@@ -17,6 +17,8 @@ import {
   LightbulbIcon,
   MenuIcon,
   XIcon,
+  DownloadIcon,
+  FileIcon,
   MaximizeIcon,
   MinimizeIcon
 } from "lucide-react";
@@ -105,6 +107,44 @@ export const CourseDetailPage = (): JSX.Element => {
 
   const canGoNext = currentLessonIndex < lessons.length - 1 || currentSlideIndex < (currentLesson?.slides?.length || 0) - 1;
   const canGoPrev = currentLessonIndex > 0 || currentSlideIndex > 0;
+
+  // Export functionality
+  const downloadExport = async (format: 'pdf' | 'scorm') => {
+    try {
+      const response = await fetch(`/api/courses/${id}/export/${format}`);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || `Failed to export ${format.toUpperCase()}`);
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Get filename from response headers or create default
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = `${course?.title?.replace(/[^a-zA-Z0-9]/g, '_')}_${format === 'pdf' ? 'Slides.pdf' : 'SCORM.zip'}`;
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(`Export ${format} failed:`, error);
+      // You could add a toast notification here
+      alert(`Failed to export ${format.toUpperCase()}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
 
   const toggleFullScreen = () => {
     setIsFullScreen(!isFullScreen);
@@ -267,6 +307,30 @@ export const CourseDetailPage = (): JSX.Element => {
               </div>
               <div className="w-32">
                 <Progress value={progress} className="h-2" />
+              </div>
+              
+              {/* Export Buttons */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => downloadExport('pdf')}
+                  data-testid="button-export-pdf"
+                  className="flex items-center gap-2"
+                >
+                  <FileIcon className="h-4 w-4" />
+                  PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => downloadExport('scorm')}
+                  data-testid="button-export-scorm"
+                  className="flex items-center gap-2"
+                >
+                  <DownloadIcon className="h-4 w-4" />
+                  SCORM
+                </Button>
               </div>
             </div>
           </div>

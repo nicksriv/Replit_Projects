@@ -1,5 +1,3 @@
-import OpenAI from "openai";
-
 /*
 Follow these instructions when using this blueprint:
 1. Note that the newest OpenAI model is "gpt-5", not "gpt-4o" or "gpt-4". gpt-5 was released on August 7, 2025, after your knowledge cutoff. Always prefer using gpt-5 as it is the latest model. When copying code from this blueprint, ensure you also mention this information verbatim as a comment so that you don't revert it to older models: `// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user`
@@ -8,7 +6,15 @@ Follow these instructions when using this blueprint:
 4. gpt-5 doesn't support temperature parameter, do not use it.
 */
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Lazy-load OpenAI to improve startup performance since it's not used in the current implementation
+let openai: any = null;
+async function getOpenAI() {
+  if (!openai) {
+    const { default: OpenAI } = await import("openai");
+    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openai;
+}
 
 export interface CourseOutlineRequest {
   title: string;
@@ -118,9 +124,11 @@ Create EXACTLY 6 lessons with logical progression. Each lesson should have 5-7 s
 
 Provide course-level information and lesson structure (without detailed slide content).`;
 
+  const openaiClient = await getOpenAI();
+  
   // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
   try {
-    const response = await openai.chat.completions.create({
+    const response = await openaiClient.chat.completions.create({
       model: "gpt-5", // Prefer gpt-5, will fallback to gpt-4 if needed
       messages: [
         {
@@ -174,7 +182,7 @@ Provide course-level information and lesson structure (without detailed slide co
     console.log('Falling back to gpt-4 for course outline...');
     // Fallback to GPT-4
     try {
-      const response = await openai.chat.completions.create({
+      const response = await openaiClient.chat.completions.create({
         model: "gpt-4",
         messages: [
           {
@@ -241,8 +249,10 @@ Requirements for each slide:
 
 Each bullet point should be a complete explanation that a teacher would provide, with sufficient detail for self-study.`;
 
+  const openaiClient = await getOpenAI();
+  
   try {
-    const response = await openai.chat.completions.create({
+    const response = await openaiClient.chat.completions.create({
       model: "gpt-5",
       messages: [
         {
@@ -370,7 +380,7 @@ Do not include any comments, explanations, or text outside the JSON structure.`
     console.log(`Falling back to gpt-4 for lesson ${lessonNumber}...`);
     // Fallback to GPT-4
     try {
-      const response = await openai.chat.completions.create({
+      const response = await openaiClient.chat.completions.create({
         model: "gpt-4",
         messages: [
           {
@@ -925,7 +935,8 @@ Transform each bullet point into a comprehensive explanation that a teacher woul
 IMPORTANT: Return the enhanced lesson in the same JSON format. Respond with valid JSON only, no additional text.`;
 
   try {
-    const response = await openai.chat.completions.create({
+    const openaiClient = await getOpenAI();
+    const response = await openaiClient.chat.completions.create({
       model: "gpt-4",
       messages: [
         {
@@ -956,7 +967,8 @@ Slide Content: ${slideContent.join(', ')}
 Style: Clean, modern, educational, professional presentation style. Use corporate colors (blues, whites, grays). Include subtle educational elements like abstract shapes, gradients, or minimal graphics that enhance readability without distracting from content.`;
 
   try {
-    const response = await openai.images.generate({
+    const openaiClient = await getOpenAI();
+    const response = await openaiClient.images.generate({
       model: "dall-e-3",
       prompt: prompt,
       n: 1,

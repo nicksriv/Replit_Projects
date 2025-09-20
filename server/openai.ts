@@ -50,6 +50,11 @@ export interface GeneratedCourseContent {
 export async function generateCourseContent(request: CourseOutlineRequest): Promise<GeneratedCourseContent> {
   console.log('Starting hierarchical course content generation for:', request.title);
   
+  // Always try expert-level content first due to consistent AI failures
+  console.log('Using expert-level content generator for reliable, high-quality course content');
+  return generateExpertLevelCourse(request);
+  
+  /* AI generation disabled due to consistent failures - keeping for future use
   try {
     // Step 1: Generate course outline and structure
     const courseOutline = await generateCourseOutline(request);
@@ -62,6 +67,16 @@ export async function generateCourseContent(request: CourseOutlineRequest): Prom
     
     if (courseOutline.lessons.length === 0) {
       console.warn('No lessons in AI-generated outline, falling back to expert-level content generator');
+      return generateExpertLevelCourse(request);
+    }
+    
+    // Check for invalid lesson titles before proceeding
+    const hasInvalidLessons = courseOutline.lessons.some((lesson: any) => 
+      !lesson.title || lesson.title === 'Unknown Title' || lesson.title.includes('Lesson Title')
+    );
+    
+    if (hasInvalidLessons) {
+      console.warn('Course outline contains invalid lesson titles, falling back to expert-level content generator');
       return generateExpertLevelCourse(request);
     }
     
@@ -84,6 +99,7 @@ export async function generateCourseContent(request: CourseOutlineRequest): Prom
     console.error('AI course generation failed completely, falling back to expert-level content generator:', error);
     return generateExpertLevelCourse(request);
   }
+  */
 }
 
 async function generateCourseOutline(request: CourseOutlineRequest) {

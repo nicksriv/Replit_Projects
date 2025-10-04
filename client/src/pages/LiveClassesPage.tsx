@@ -339,16 +339,29 @@ function CreateClassDialog({ open, onOpenChange }: { open: boolean; onOpenChange
 
   useEffect(() => {
     if (formData.meetingUrl && formData.meetingUrl.length > 10) {
-      setShowCamera(true);
-      startCamera();
+      if (!showCamera && !cameraStream) {
+        setShowCamera(true);
+        startCamera();
+      }
     } else {
-      setShowCamera(false);
-      stopCamera();
+      if (showCamera || cameraStream) {
+        setShowCamera(false);
+        stopRecording();
+        stopCamera();
+      }
     }
   }, [formData.meetingUrl]);
 
   useEffect(() => {
+    if (!open) {
+      stopRecording();
+      stopCamera();
+      setShowCamera(false);
+      setRecordedBlob(null);
+    }
+    
     return () => {
+      stopRecording();
       stopCamera();
     };
   }, [open]);
@@ -410,6 +423,7 @@ function CreateClassDialog({ open, onOpenChange }: { open: boolean; onOpenChange
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
       setIsRecording(false);
     }
   };
@@ -432,12 +446,25 @@ function CreateClassDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     });
   };
 
+  const handleDialogChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      stopRecording();
+      stopCamera();
+      setShowCamera(false);
+      setRecordedBlob(null);
+    }
+    onOpenChange(newOpen);
+  };
+
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) => apiRequest("POST", "/api/live-classes", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/live-classes"] });
       toast({ title: "Success", description: "Live class scheduled successfully" });
+      stopRecording();
       stopCamera();
+      setShowCamera(false);
+      setRecordedBlob(null);
       onOpenChange(false);
       setFormData({
         title: "",
@@ -447,7 +474,6 @@ function CreateClassDialog({ open, onOpenChange }: { open: boolean; onOpenChange
         meetingUrl: "",
         maxParticipants: 50,
       });
-      setRecordedBlob(null);
     },
     onError: (error: any) => {
       toast({ 
@@ -464,7 +490,7 @@ function CreateClassDialog({ open, onOpenChange }: { open: boolean; onOpenChange
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogChange}>
       <DialogTrigger asChild>
         <Button data-testid="button-schedule-class">
           <CalendarIcon className="h-4 w-4 mr-2" />
@@ -632,7 +658,7 @@ function CreateClassDialog({ open, onOpenChange }: { open: boolean; onOpenChange
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => handleDialogChange(false)}>
               Cancel
             </Button>
             <Button type="submit" data-testid="button-submit-class" disabled={createMutation.isPending}>

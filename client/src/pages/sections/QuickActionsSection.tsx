@@ -25,7 +25,7 @@ export const QuickActionsSection = (): JSX.Element => {
       isPrimary: false,
       className:
         "bg-text-colorwhite text-text-colorvery-dark border border-solid border-[#7e86c1]",
-      route: "/courses",
+      route: "/live-classes",
     },
     {
       title: "Launch Coupon",

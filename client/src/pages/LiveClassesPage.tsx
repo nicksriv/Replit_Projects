@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -34,7 +34,11 @@ import {
   PlayCircle,
   CheckCircle,
   XCircle,
-  Eye
+  Eye,
+  Camera,
+  Circle,
+  StopCircle,
+  Download
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -324,12 +328,116 @@ function CreateClassDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     meetingUrl: "",
     maxParticipants: 50,
   });
+  
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  useEffect(() => {
+    if (formData.meetingUrl && formData.meetingUrl.length > 10) {
+      setShowCamera(true);
+      startCamera();
+    } else {
+      setShowCamera(false);
+      stopCamera();
+    }
+  }, [formData.meetingUrl]);
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, [open]);
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { width: 1280, height: 720 }, 
+        audio: true 
+      });
+      setCameraStream(stream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (error) {
+      toast({
+        title: "Camera Access Denied",
+        description: "Please allow camera access to record your live class",
+        variant: "destructive"
+      });
+      console.error("Error accessing camera:", error);
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  const startRecording = () => {
+    if (!cameraStream) return;
+
+    chunksRef.current = [];
+    const mediaRecorder = new MediaRecorder(cameraStream, {
+      mimeType: 'video/webm;codecs=vp9'
+    });
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        chunksRef.current.push(event.data);
+      }
+    };
+
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+      setRecordedBlob(blob);
+    };
+
+    mediaRecorder.start();
+    mediaRecorderRef.current = mediaRecorder;
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const downloadRecording = () => {
+    if (!recordedBlob) return;
+
+    const url = URL.createObjectURL(recordedBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `live-class-${Date.now()}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Recording Downloaded",
+      description: "Your live class recording has been saved"
+    });
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) => apiRequest("POST", "/api/live-classes", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/live-classes"] });
       toast({ title: "Success", description: "Live class scheduled successfully" });
+      stopCamera();
       onOpenChange(false);
       setFormData({
         title: "",
@@ -339,6 +447,7 @@ function CreateClassDialog({ open, onOpenChange }: { open: boolean; onOpenChange
         meetingUrl: "",
         maxParticipants: 50,
       });
+      setRecordedBlob(null);
     },
     onError: (error: any) => {
       toast({ 
@@ -362,7 +471,7 @@ function CreateClassDialog({ open, onOpenChange }: { open: boolean; onOpenChange
           Schedule Live Class
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Schedule New Live Class</DialogTitle>
           <DialogDescription>
@@ -433,6 +542,81 @@ function CreateClassDialog({ open, onOpenChange }: { open: boolean; onOpenChange
               type="url"
             />
           </div>
+
+          {showCamera && (
+            <div className="space-y-3 border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+              <div className="flex items-center gap-2 mb-2">
+                <Camera className="h-5 w-5 text-blue-600" />
+                <Label className="text-blue-900 font-semibold">Live Recording</Label>
+              </div>
+              
+              <div className="relative rounded-lg overflow-hidden bg-black">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-64 object-cover"
+                  data-testid="video-preview"
+                />
+                {isRecording && (
+                  <div className="absolute top-3 right-3 flex items-center gap-2 bg-red-600 text-white px-3 py-1 rounded-full">
+                    <Circle className="h-3 w-3 fill-current animate-pulse" />
+                    <span className="text-sm font-semibold">Recording</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                {!isRecording ? (
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    onClick={startRecording}
+                    disabled={!cameraStream}
+                    data-testid="button-start-recording"
+                    className="flex-1"
+                  >
+                    <Circle className="h-4 w-4 mr-2 fill-current text-red-500" />
+                    Start Recording
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={stopRecording}
+                    data-testid="button-stop-recording"
+                    className="flex-1"
+                  >
+                    <StopCircle className="h-4 w-4 mr-2" />
+                    Stop Recording
+                  </Button>
+                )}
+                
+                {recordedBlob && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={downloadRecording}
+                    data-testid="button-download-recording"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
+                )}
+              </div>
+
+              {recordedBlob && (
+                <p className="text-sm text-green-700 flex items-center gap-1">
+                  <CheckCircle className="h-4 w-4" />
+                  Recording saved! You can download it above.
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <Label htmlFor="maxParticipants">Max Participants (optional)</Label>

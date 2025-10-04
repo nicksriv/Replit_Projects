@@ -47,6 +47,12 @@ const workspaceItems = [
     route: "/skills",
   },
   {
+    id: "live-classes",
+    label: "Live Classes",
+    icon: "/figmaAssets/icon-9.svg",
+    route: "/live-classes",
+  },
+  {
     id: "reports",
     label: "Reports",
     icon: "/figmaAssets/icon-16.svg",

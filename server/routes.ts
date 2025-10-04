@@ -35,7 +35,11 @@ import {
   updateFaqEntrySchema,
   insertSupportTicketSchema,
   updateSupportTicketSchema,
-  insertTicketMessageSchema
+  insertTicketMessageSchema,
+  insertLiveClassSchema,
+  updateLiveClassSchema,
+  insertRecordedVideoSchema,
+  updateRecordedVideoSchema
 } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
@@ -1626,6 +1630,193 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to create message" });
+    }
+  });
+
+  // Live Classes Routes
+  
+  // Get all live classes (optionally filter by instructor)
+  app.get("/api/live-classes", async (req, res) => {
+    try {
+      const instructorId = req.query.instructorId ? parseInt(req.query.instructorId as string) : undefined;
+      const classes = await storage.getLiveClasses(instructorId);
+      res.json(classes);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch live classes" });
+    }
+  });
+
+  // Get a specific live class
+  app.get("/api/live-classes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid class ID" });
+      }
+      
+      const liveClass = await storage.getLiveClass(id);
+      if (!liveClass) {
+        return res.status(404).json({ error: "Live class not found" });
+      }
+      
+      res.json(liveClass);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch live class" });
+    }
+  });
+
+  // Create a new live class
+  app.post("/api/live-classes", async (req, res) => {
+    try {
+      const validatedData = insertLiveClassSchema.parse(req.body);
+      const instructorId = 1; // TODO: Get from authenticated user
+      const liveClass = await storage.createLiveClass(validatedData, instructorId);
+      res.status(201).json(liveClass);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ error: validationError.message });
+      }
+      res.status(500).json({ error: "Failed to create live class" });
+    }
+  });
+
+  // Update a live class
+  app.put("/api/live-classes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid class ID" });
+      }
+      
+      const validatedData = updateLiveClassSchema.parse(req.body);
+      const liveClass = await storage.updateLiveClass(id, validatedData);
+      
+      if (!liveClass) {
+        return res.status(404).json({ error: "Live class not found" });
+      }
+      
+      res.json(liveClass);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ error: validationError.message });
+      }
+      res.status(500).json({ error: "Failed to update live class" });
+    }
+  });
+
+  // Delete a live class
+  app.delete("/api/live-classes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid class ID" });
+      }
+      
+      const deleted = await storage.deleteLiveClass(id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Live class not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete live class" });
+    }
+  });
+
+  // Recorded Videos Routes
+  
+  // Get all recorded videos (optionally filter by instructor)
+  app.get("/api/recorded-videos", async (req, res) => {
+    try {
+      const instructorId = req.query.instructorId ? parseInt(req.query.instructorId as string) : undefined;
+      const videos = await storage.getRecordedVideos(instructorId);
+      res.json(videos);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch recorded videos" });
+    }
+  });
+
+  // Get a specific recorded video
+  app.get("/api/recorded-videos/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid video ID" });
+      }
+      
+      const video = await storage.getRecordedVideo(id);
+      if (!video) {
+        return res.status(404).json({ error: "Recorded video not found" });
+      }
+      
+      // Increment view count
+      await storage.incrementVideoViews(id);
+      
+      res.json(video);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch recorded video" });
+    }
+  });
+
+  // Create a new recorded video
+  app.post("/api/recorded-videos", async (req, res) => {
+    try {
+      const validatedData = insertRecordedVideoSchema.parse(req.body);
+      const instructorId = 1; // TODO: Get from authenticated user
+      const video = await storage.createRecordedVideo(validatedData, instructorId);
+      res.status(201).json(video);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ error: validationError.message });
+      }
+      res.status(500).json({ error: "Failed to create recorded video" });
+    }
+  });
+
+  // Update a recorded video
+  app.put("/api/recorded-videos/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid video ID" });
+      }
+      
+      const validatedData = updateRecordedVideoSchema.parse(req.body);
+      const video = await storage.updateRecordedVideo(id, validatedData);
+      
+      if (!video) {
+        return res.status(404).json({ error: "Recorded video not found" });
+      }
+      
+      res.json(video);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ error: validationError.message });
+      }
+      res.status(500).json({ error: "Failed to update recorded video" });
+    }
+  });
+
+  // Delete a recorded video
+  app.delete("/api/recorded-videos/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid video ID" });
+      }
+      
+      const deleted = await storage.deleteRecordedVideo(id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Recorded video not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete recorded video" });
     }
   });
 

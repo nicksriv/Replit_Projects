@@ -814,3 +814,79 @@ export type SupportTicket = typeof supportTickets.$inferSelect;
 export type UpdateSupportTicket = z.infer<typeof updateSupportTicketSchema>;
 export type InsertTicketMessage = z.infer<typeof insertTicketMessageSchema>;
 export type TicketMessage = typeof ticketMessages.$inferSelect;
+
+// Live Classes
+export const liveClasses = pgTable("live_classes", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  instructorId: integer("instructor_id").references(() => users.id),
+  courseId: integer("course_id").references(() => courses.id),
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  duration: integer("duration").notNull(), // in minutes
+  meetingUrl: text("meeting_url"),
+  status: text("status", { enum: ["scheduled", "live", "completed", "cancelled"] }).default("scheduled"),
+  maxParticipants: integer("max_participants"),
+  recordingUrl: text("recording_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertLiveClassSchema = createInsertSchema(liveClasses).omit({
+  id: true,
+  instructorId: true,
+  createdAt: true,
+}).extend({
+  title: z.string().min(3, "Title must be at least 3 characters").max(200, "Title must be less than 200 characters"),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  scheduledAt: z.string().or(z.date()),
+  duration: z.number().min(15, "Duration must be at least 15 minutes").max(480, "Duration cannot exceed 8 hours"),
+  meetingUrl: z.string().url().optional().or(z.literal("")),
+  status: z.enum(["scheduled", "live", "completed", "cancelled"]).optional(),
+  maxParticipants: z.number().min(1).max(1000).optional(),
+  courseId: z.number().optional(),
+  recordingUrl: z.string().url().optional().or(z.literal("")),
+});
+
+export const updateLiveClassSchema = insertLiveClassSchema.partial();
+
+export type InsertLiveClass = z.infer<typeof insertLiveClassSchema>;
+export type UpdateLiveClass = z.infer<typeof updateLiveClassSchema>;
+export type LiveClass = typeof liveClasses.$inferSelect;
+
+// Recorded Videos
+export const recordedVideos = pgTable("recorded_videos", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  instructorId: integer("instructor_id").references(() => users.id),
+  courseId: integer("course_id").references(() => courses.id),
+  videoUrl: text("video_url").notNull(),
+  thumbnail: text("thumbnail"),
+  duration: integer("duration").notNull(), // in seconds
+  fileSize: integer("file_size"), // in bytes
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+  views: integer("views").default(0),
+  isPublished: boolean("is_published").default(false),
+});
+
+export const insertRecordedVideoSchema = createInsertSchema(recordedVideos).omit({
+  id: true,
+  instructorId: true,
+  uploadedAt: true,
+  views: true,
+}).extend({
+  title: z.string().min(3, "Title must be at least 3 characters").max(200, "Title must be less than 200 characters"),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  videoUrl: z.string().url("Must be a valid video URL"),
+  thumbnail: z.string().url().optional().or(z.literal("")),
+  duration: z.number().min(1, "Duration must be at least 1 second"),
+  fileSize: z.number().optional(),
+  courseId: z.number().optional(),
+  isPublished: z.boolean().optional(),
+});
+
+export const updateRecordedVideoSchema = insertRecordedVideoSchema.partial();
+
+export type InsertRecordedVideo = z.infer<typeof insertRecordedVideoSchema>;
+export type UpdateRecordedVideo = z.infer<typeof updateRecordedVideoSchema>;
+export type RecordedVideo = typeof recordedVideos.$inferSelect;

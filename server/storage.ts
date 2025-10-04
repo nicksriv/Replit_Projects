@@ -77,7 +77,15 @@ import {
   type InsertSupportTicket,
   type UpdateSupportTicket,
   type TicketMessage,
-  type InsertTicketMessage
+  type InsertTicketMessage,
+  liveClasses,
+  recordedVideos,
+  type LiveClass,
+  type InsertLiveClass,
+  type UpdateLiveClass,
+  type RecordedVideo,
+  type InsertRecordedVideo,
+  type UpdateRecordedVideo
 } from "@shared/schema";
 
 // modify the interface with any CRUD methods
@@ -229,6 +237,21 @@ export interface IStorage {
   // Help & Support - Ticket Messages
   getTicketMessages(ticketId: number): Promise<TicketMessage[]>;
   createTicketMessage(message: InsertTicketMessage, ticketId: number, userId: number, isFromSupport?: boolean): Promise<TicketMessage>;
+  
+  // Live Classes methods
+  getLiveClasses(instructorId?: number): Promise<LiveClass[]>;
+  getLiveClass(id: number): Promise<LiveClass | undefined>;
+  createLiveClass(liveClass: InsertLiveClass, instructorId: number): Promise<LiveClass>;
+  updateLiveClass(id: number, updates: UpdateLiveClass): Promise<LiveClass | undefined>;
+  deleteLiveClass(id: number): Promise<boolean>;
+  
+  // Recorded Videos methods
+  getRecordedVideos(instructorId?: number): Promise<RecordedVideo[]>;
+  getRecordedVideo(id: number): Promise<RecordedVideo | undefined>;
+  createRecordedVideo(video: InsertRecordedVideo, instructorId: number): Promise<RecordedVideo>;
+  updateRecordedVideo(id: number, updates: UpdateRecordedVideo): Promise<RecordedVideo | undefined>;
+  deleteRecordedVideo(id: number): Promise<boolean>;
+  incrementVideoViews(id: number): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -255,6 +278,8 @@ export class MemStorage implements IStorage {
   private faqEntries: Map<number, FaqEntry>;
   private supportTickets: Map<number, SupportTicket>;
   private ticketMessages: Map<number, TicketMessage>;
+  private liveClassesMap: Map<number, LiveClass>;
+  private recordedVideosMap: Map<number, RecordedVideo>;
   private currentUserId: number;
   private currentCourseId: number;
   private currentRevenueId: number;
@@ -278,6 +303,8 @@ export class MemStorage implements IStorage {
   private currentFaqEntryId: number;
   private currentSupportTicketId: number;
   private currentTicketMessageId: number;
+  private currentLiveClassId: number;
+  private currentRecordedVideoId: number;
 
   constructor() {
     this.users = new Map();
@@ -303,6 +330,8 @@ export class MemStorage implements IStorage {
     this.faqEntries = new Map();
     this.supportTickets = new Map();
     this.ticketMessages = new Map();
+    this.liveClassesMap = new Map();
+    this.recordedVideosMap = new Map();
     this.currentUserId = 1;
     this.currentCourseId = 1;
     this.currentRevenueId = 1;
@@ -326,6 +355,8 @@ export class MemStorage implements IStorage {
     this.currentFaqEntryId = 1;
     this.currentSupportTicketId = 1;
     this.currentTicketMessageId = 1;
+    this.currentLiveClassId = 1;
+    this.currentRecordedVideoId = 1;
     
     // Add some sample data for demo
     this.seedSampleData();
@@ -1588,6 +1619,107 @@ export class MemStorage implements IStorage {
     }
     
     return message;
+  }
+
+  // Live Classes methods
+  async getLiveClasses(instructorId?: number): Promise<LiveClass[]> {
+    const classes = Array.from(this.liveClassesMap.values());
+    if (instructorId !== undefined) {
+      return classes.filter(c => c.instructorId === instructorId);
+    }
+    return classes;
+  }
+
+  async getLiveClass(id: number): Promise<LiveClass | undefined> {
+    return this.liveClassesMap.get(id);
+  }
+
+  async createLiveClass(insertClass: InsertLiveClass, instructorId: number): Promise<LiveClass> {
+    const id = this.currentLiveClassId++;
+    const liveClass: LiveClass = {
+      ...insertClass,
+      id,
+      instructorId,
+      scheduledAt: typeof insertClass.scheduledAt === 'string' ? new Date(insertClass.scheduledAt) : insertClass.scheduledAt,
+      status: insertClass.status || "scheduled",
+      courseId: insertClass.courseId || null,
+      meetingUrl: insertClass.meetingUrl || null,
+      maxParticipants: insertClass.maxParticipants || null,
+      recordingUrl: insertClass.recordingUrl || null,
+      createdAt: new Date(),
+    };
+    this.liveClassesMap.set(id, liveClass);
+    return liveClass;
+  }
+
+  async updateLiveClass(id: number, updates: UpdateLiveClass): Promise<LiveClass | undefined> {
+    const existing = this.liveClassesMap.get(id);
+    if (!existing) return undefined;
+
+    const updatedClass = { 
+      ...existing, 
+      ...updates,
+      scheduledAt: updates.scheduledAt 
+        ? (typeof updates.scheduledAt === 'string' ? new Date(updates.scheduledAt) : updates.scheduledAt)
+        : existing.scheduledAt
+    };
+    this.liveClassesMap.set(id, updatedClass);
+    return updatedClass;
+  }
+
+  async deleteLiveClass(id: number): Promise<boolean> {
+    return this.liveClassesMap.delete(id);
+  }
+
+  // Recorded Videos methods
+  async getRecordedVideos(instructorId?: number): Promise<RecordedVideo[]> {
+    const videos = Array.from(this.recordedVideosMap.values());
+    if (instructorId !== undefined) {
+      return videos.filter(v => v.instructorId === instructorId);
+    }
+    return videos;
+  }
+
+  async getRecordedVideo(id: number): Promise<RecordedVideo | undefined> {
+    return this.recordedVideosMap.get(id);
+  }
+
+  async createRecordedVideo(insertVideo: InsertRecordedVideo, instructorId: number): Promise<RecordedVideo> {
+    const id = this.currentRecordedVideoId++;
+    const video: RecordedVideo = {
+      ...insertVideo,
+      id,
+      instructorId,
+      courseId: insertVideo.courseId || null,
+      thumbnail: insertVideo.thumbnail || null,
+      fileSize: insertVideo.fileSize || null,
+      isPublished: insertVideo.isPublished !== undefined ? insertVideo.isPublished : false,
+      views: 0,
+      uploadedAt: new Date(),
+    };
+    this.recordedVideosMap.set(id, video);
+    return video;
+  }
+
+  async updateRecordedVideo(id: number, updates: UpdateRecordedVideo): Promise<RecordedVideo | undefined> {
+    const existing = this.recordedVideosMap.get(id);
+    if (!existing) return undefined;
+
+    const updatedVideo = { ...existing, ...updates };
+    this.recordedVideosMap.set(id, updatedVideo);
+    return updatedVideo;
+  }
+
+  async deleteRecordedVideo(id: number): Promise<boolean> {
+    return this.recordedVideosMap.delete(id);
+  }
+
+  async incrementVideoViews(id: number): Promise<void> {
+    const video = this.recordedVideosMap.get(id);
+    if (video) {
+      video.views = (video.views || 0) + 1;
+      this.recordedVideosMap.set(id, video);
+    }
   }
 }
 

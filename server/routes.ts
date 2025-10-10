@@ -5,6 +5,7 @@ import { log } from "./vite";
 import { generateCourseContent, type CourseOutlineRequest } from "./openai";
 import { createSCORMPackage, createCoursePDF } from "./exports";
 import { CourseLesson } from "@shared/types";
+import { analyzeYouTubeVideo, answerQuestion } from "./youtube";
 import { 
   insertCourseSchema, 
   updateCourseSchema, 
@@ -1817,6 +1818,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete recorded video" });
+    }
+  });
+
+  // YouTube Knowledge Base Routes
+  
+  // Analyze YouTube video
+  app.post("/api/youtube/analyze", async (req, res) => {
+    try {
+      const { url } = req.body;
+      
+      if (!url) {
+        return res.status(400).json({ error: "YouTube URL is required" });
+      }
+
+      const userId = 1; // TODO: Get from authenticated user
+      const result = await analyzeYouTubeVideo(url, storage, userId);
+      
+      res.status(201).json(result);
+    } catch (error) {
+      console.error("YouTube analysis error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to analyze YouTube video" 
+      });
+    }
+  });
+
+  // Get YouTube analysis
+  app.get("/api/youtube/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid analysis ID" });
+      }
+
+      const analysis = await storage.getYoutubeAnalysis(id);
+      if (!analysis) {
+        return res.status(404).json({ error: "Analysis not found" });
+      }
+
+      const questions = await storage.getYoutubeQuestions(id);
+      
+      res.json({ ...analysis, questions });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch analysis" });
+    }
+  });
+
+  // Ask question about YouTube video
+  app.post("/api/youtube/:id/chat", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid analysis ID" });
+      }
+
+      const { question } = req.body;
+      if (!question) {
+        return res.status(400).json({ error: "Question is required" });
+      }
+
+      const result = await answerQuestion(id, question, storage);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Question answering error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to answer question" 
+      });
+    }
+  });
+
+  // Get all YouTube analyses for a user
+  app.get("/api/youtube", async (req, res) => {
+    try {
+      const userId = 1; // TODO: Get from authenticated user
+      const analyses = await storage.getYoutubeAnalyses(userId);
+      res.json(analyses);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch analyses" });
     }
   });
 

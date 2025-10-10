@@ -934,6 +934,8 @@ export const insertYoutubeQuestionSchema = createInsertSchema(youtubeQuestions).
 });
 
 export type InsertYoutubeAnalysis = z.infer<typeof insertYoutubeAnalysisSchema>;
+export type InsertYoutubeChunk = z.infer<typeof insertYoutubeChunkSchema>;
+export type InsertYoutubeQuestion = z.infer<typeof insertYoutubeQuestionSchema>;
 export type YoutubeAnalysis = typeof youtubeAnalyses.$inferSelect;
 export type YoutubeChunk = typeof youtubeChunks.$inferSelect;
 export type YoutubeQuestion = typeof youtubeQuestions.$inferSelect;

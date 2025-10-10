@@ -80,12 +80,21 @@ import {
   type InsertTicketMessage,
   liveClasses,
   recordedVideos,
+  youtubeAnalyses,
+  youtubeChunks,
+  youtubeQuestions,
   type LiveClass,
   type InsertLiveClass,
   type UpdateLiveClass,
   type RecordedVideo,
   type InsertRecordedVideo,
-  type UpdateRecordedVideo
+  type UpdateRecordedVideo,
+  type YoutubeAnalysis,
+  type InsertYoutubeAnalysis,
+  type YoutubeChunk,
+  type InsertYoutubeChunk,
+  type YoutubeQuestion,
+  type InsertYoutubeQuestion
 } from "@shared/schema";
 
 // modify the interface with any CRUD methods
@@ -252,6 +261,15 @@ export interface IStorage {
   updateRecordedVideo(id: number, updates: UpdateRecordedVideo): Promise<RecordedVideo | undefined>;
   deleteRecordedVideo(id: number): Promise<boolean>;
   incrementVideoViews(id: number): Promise<void>;
+  
+  // YouTube Knowledge Base methods
+  getYoutubeAnalyses(userId: number): Promise<YoutubeAnalysis[]>;
+  getYoutubeAnalysis(id: number): Promise<YoutubeAnalysis | undefined>;
+  createYoutubeAnalysis(analysis: InsertYoutubeAnalysis, userId: number): Promise<YoutubeAnalysis>;
+  getYoutubeChunks(analysisId: number): Promise<YoutubeChunk[]>;
+  createYoutubeChunk(chunk: InsertYoutubeChunk): Promise<YoutubeChunk>;
+  getYoutubeQuestions(analysisId: number): Promise<YoutubeQuestion[]>;
+  createYoutubeQuestion(question: InsertYoutubeQuestion): Promise<YoutubeQuestion>;
 }
 
 export class MemStorage implements IStorage {

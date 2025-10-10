@@ -1,6 +1,6 @@
 import { YoutubeTranscript } from 'youtube-transcript';
 import ytdl from '@distube/ytdl-core';
-import { createWriteStream } from 'fs';
+import { createWriteStream, createReadStream } from 'fs';
 import { unlink } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -44,11 +44,29 @@ export async function extractYouTubeVideoId(url: string): Promise<string | null>
 }
 
 async function downloadYouTubeAudio(videoId: string): Promise<string> {
-  return new Promise(async (resolve, reject) => {
+  const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const audioPath = join(tmpdir(), `youtube-${videoId}-${Date.now()}.mp3`);
+  
+  return new Promise((resolve, reject) => {
+    let writeStream: ReturnType<typeof createWriteStream> | null = null;
+    
+    const cleanupOnError = async (error: Error) => {
+      try {
+        if (writeStream) {
+          writeStream.destroy();
+        }
+        await unlink(audioPath);
+        console.log(`Cleaned up temp file after error: ${audioPath}`);
+      } catch (cleanupError) {
+        // Ignore ENOENT errors (file never created), log others
+        if ((cleanupError as any).code !== 'ENOENT') {
+          console.error('Failed to cleanup temp file:', cleanupError);
+        }
+      }
+      reject(error);
+    };
+    
     try {
-      const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-      const audioPath = join(tmpdir(), `youtube-${videoId}-${Date.now()}.mp3`);
-      
       console.log(`Downloading audio for video: ${videoId}`);
       
       const stream = ytdl(videoUrl, {
@@ -56,7 +74,7 @@ async function downloadYouTubeAudio(videoId: string): Promise<string> {
         quality: 'lowestaudio',
       });
       
-      const writeStream = createWriteStream(audioPath);
+      writeStream = createWriteStream(audioPath);
       
       stream.pipe(writeStream);
       
@@ -66,14 +84,14 @@ async function downloadYouTubeAudio(videoId: string): Promise<string> {
       });
       
       writeStream.on('error', (error) => {
-        reject(new Error(`Failed to download audio: ${error.message}`));
+        cleanupOnError(new Error(`Failed to write audio: ${error.message}`));
       });
       
       stream.on('error', (error) => {
-        reject(new Error(`Failed to stream audio: ${error.message}`));
+        cleanupOnError(new Error(`Failed to stream audio: ${error.message}`));
       });
     } catch (error) {
-      reject(error);
+      cleanupOnError(error instanceof Error ? error : new Error('Unknown download error'));
     }
   });
 }
@@ -83,7 +101,7 @@ async function transcribeAudioWithWhisper(audioPath: string): Promise<string> {
     console.log(`Transcribing audio file: ${audioPath}`);
     
     const transcription = await openai.audio.transcriptions.create({
-      file: require('fs').createReadStream(audioPath),
+      file: createReadStream(audioPath) as any,
       model: 'whisper-1',
       language: 'en', // You can make this dynamic or remove to auto-detect
     });
@@ -118,23 +136,8 @@ export async function getYouTubeTranscript(videoId: string): Promise<string> {
     audioPath = await downloadYouTubeAudio(videoId);
     const transcript = await transcribeAudioWithWhisper(audioPath);
     
-    // Clean up the audio file
-    if (audioPath) {
-      await unlink(audioPath);
-      console.log(`Cleaned up audio file: ${audioPath}`);
-    }
-    
     return transcript;
   } catch (error) {
-    // Clean up on error
-    if (audioPath) {
-      try {
-        await unlink(audioPath);
-      } catch (unlinkError) {
-        console.error('Failed to clean up audio file:', unlinkError);
-      }
-    }
-    
     console.error(`Transcript generation error for ${videoId}:`, error);
     
     if (error instanceof Error) {
@@ -147,6 +150,16 @@ export async function getYouTubeTranscript(videoId: string): Promise<string> {
       throw new Error(`Failed to generate transcript: ${error.message}`);
     }
     throw new Error('Failed to generate YouTube transcript. Please try a different video.');
+  } finally {
+    // Always clean up the audio file, even on success or error
+    if (audioPath) {
+      try {
+        await unlink(audioPath);
+        console.log(`Cleaned up audio file: ${audioPath}`);
+      } catch (unlinkError) {
+        console.error('Failed to clean up audio file (non-critical):', unlinkError);
+      }
+    }
   }
 }
 

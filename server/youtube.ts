@@ -130,24 +130,15 @@ export async function getYouTubeTranscript(videoId: string): Promise<string> {
   try {
     console.log(`Generating transcript for video ID: ${videoId}`);
     
-    // Try to get existing captions - this is the most reliable method
-    // Try multiple languages in order of preference
-    const languages = ['en', 'en-US', 'en-GB'];
+    // Try common language codes in order of preference
+    const languageCodesToTry = [
+      'en', 'en-US', 'en-GB',  // English variants
+      'hi', 'ta', 'te', 'bn',  // Indian languages
+      'es', 'fr', 'de', 'pt',  // European languages
+      'ja', 'ko', 'zh', 'ar',  // Asian/Middle Eastern languages
+    ];
     
-    for (const lang of languages) {
-      try {
-        const transcript = await YoutubeTranscript.fetchTranscript(videoId, { lang });
-        if (transcript && transcript.length > 0) {
-          const fullTranscript = transcript.map(item => item.text).join(' ');
-          console.log(`Successfully fetched ${lang} captions, length: ${fullTranscript.length} characters`);
-          return fullTranscript;
-        }
-      } catch (langError) {
-        console.log(`No ${lang} captions available, trying next option...`);
-      }
-    }
-    
-    // Try without specifying language (auto-detect)
+    // First try without specifying language (auto-detect)
     try {
       const transcript = await YoutubeTranscript.fetchTranscript(videoId);
       if (transcript && transcript.length > 0) {
@@ -156,13 +147,28 @@ export async function getYouTubeTranscript(videoId: string): Promise<string> {
         return fullTranscript;
       }
     } catch (autoError) {
-      console.log('No auto-detected captions available');
+      console.log(`Auto-detect failed, trying specific languages...`);
     }
     
-    // If we get here, no captions are available
-    throw new Error('No captions/subtitles available for this video. Please use a video with captions enabled.');
+    // Try each language code
+    for (const lang of languageCodesToTry) {
+      try {
+        const transcript = await YoutubeTranscript.fetchTranscript(videoId, { lang });
+        if (transcript && transcript.length > 0) {
+          const fullTranscript = transcript.map(item => item.text).join(' ');
+          console.log(`Successfully fetched ${lang} captions, length: ${fullTranscript.length} characters`);
+          return fullTranscript;
+        }
+      } catch (langError) {
+        // Continue to next language
+        continue;
+      }
+    }
     
-  } catch (error) {
+    // If we get here, no captions were found in any language
+    throw new Error('This video does not have captions/subtitles available. Please try a different video with captions enabled.');
+    
+  } catch (error: any) {
     console.error(`Transcript generation error for ${videoId}:`, error);
     
     if (error instanceof Error) {
@@ -173,10 +179,11 @@ export async function getYouTubeTranscript(videoId: string): Promise<string> {
         throw new Error('This video is age-restricted and cannot be processed.');
       }
       if (error.message.includes('captions') || error.message.includes('subtitles')) {
-        throw error; // Re-throw our custom caption error
+        throw error;
       }
-      throw new Error(`Failed to generate transcript: ${error.message}`);
+      throw new Error(`Failed to fetch transcript: ${error.message}`);
     }
+    
     throw new Error('Failed to generate YouTube transcript. Please try a different video with captions enabled.');
   }
 }

@@ -5,8 +5,9 @@ export interface YouTubeAnalysisResult {
   analysisId: number;
   videoId: string;
   videoTitle: string;
+  channelName: string;
   videoUrl: string;
-  transcriptText: string;
+  transcript: string;
   chunks: Array<{
     id: number;
     chunkIndex: number;
@@ -52,22 +53,24 @@ export async function analyzeYouTubeVideo(
     throw new Error('Invalid YouTube URL');
   }
 
-  const transcriptText = await getYouTubeTranscript(videoId);
+  const transcript = await getYouTubeTranscript(videoId);
   
-  if (!transcriptText || transcriptText.trim().length === 0) {
+  if (!transcript || transcript.trim().length === 0) {
     throw new Error('No transcript available for this video');
   }
 
   const videoTitle = `YouTube Video ${videoId}`;
+  const channelName = "YouTube Channel";
   
   const analysis = await storage.createYoutubeAnalysis({
     videoId,
     videoTitle,
+    channelName,
     videoUrl: url,
-    transcriptText,
+    transcript,
   }, userId);
 
-  const textChunks = chunkText(transcriptText, 500, 50);
+  const textChunks = chunkText(transcript, 500, 50);
   
   const chunksWithEmbeddings = await Promise.all(
     textChunks.map(async (chunk, index) => {
@@ -91,8 +94,9 @@ export async function analyzeYouTubeVideo(
     analysisId: analysis.id,
     videoId,
     videoTitle,
+    channelName,
     videoUrl: url,
-    transcriptText,
+    transcript,
     chunks: chunksWithEmbeddings,
   };
 }

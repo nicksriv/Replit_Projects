@@ -897,8 +897,9 @@ export const youtubeAnalyses = pgTable("youtube_analyses", {
   userId: integer("user_id").references(() => users.id),
   videoId: text("video_id").notNull(), // YouTube video ID
   videoTitle: text("video_title").notNull(),
+  channelName: text("channel_name").notNull(),
   videoUrl: text("video_url").notNull(),
-  transcriptText: text("transcript_text").notNull(),
+  transcript: text("transcript").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

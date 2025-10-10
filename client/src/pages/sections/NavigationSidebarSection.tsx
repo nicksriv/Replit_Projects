@@ -53,6 +53,12 @@ const workspaceItems = [
     route: "/live-classes",
   },
   {
+    id: "youtube-knowledge",
+    label: "YouTube Knowledge",
+    icon: "/figmaAssets/icon-15.svg",
+    route: "/youtube",
+  },
+  {
     id: "reports",
     label: "Reports",
     icon: "/figmaAssets/icon-16.svg",

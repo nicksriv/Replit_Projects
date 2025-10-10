@@ -18,6 +18,7 @@ import Marketing from "@/pages/Marketing";
 import Settings from "@/pages/Settings";
 import HelpSupport from "@/pages/HelpSupport";
 import { LiveClassesPage } from "@/pages/LiveClassesPage";
+import YoutubeKnowledgePage from "@/pages/YoutubeKnowledgePage";
 
 function Router() {
   return (
@@ -34,6 +35,7 @@ function Router() {
         <Route path="/learners" component={LearnerManagement} />
         <Route path="/skills" component={SkillsManagement} />
         <Route path="/live-classes" component={LiveClassesPage} />
+        <Route path="/youtube" component={YoutubeKnowledgePage} />
         <Route path="/reports" component={Reports} />
         <Route path="/marketing" component={Marketing} />
         <Route path="/settings" component={Settings} />

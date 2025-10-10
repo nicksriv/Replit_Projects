@@ -35,10 +35,30 @@ export async function extractYouTubeVideoId(url: string): Promise<string | null>
 
 export async function getYouTubeTranscript(videoId: string): Promise<string> {
   try {
+    console.log(`Fetching transcript for video ID: ${videoId}`);
     const transcript = await YoutubeTranscript.fetchTranscript(videoId);
-    return transcript.map(item => item.text).join(' ');
+    
+    if (!transcript || transcript.length === 0) {
+      throw new Error('No captions available for this video. Please try a video with subtitles/captions enabled.');
+    }
+    
+    const fullTranscript = transcript.map(item => item.text).join(' ');
+    console.log(`Successfully fetched transcript, length: ${fullTranscript.length} characters`);
+    return fullTranscript;
   } catch (error) {
-    throw new Error(`Failed to fetch YouTube transcript: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error(`Transcript fetch error for ${videoId}:`, error);
+    
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      if (error.message.includes('Could not find captions')) {
+        throw new Error('This video does not have captions/subtitles available. Please use a video with captions enabled.');
+      }
+      if (error.message.includes('private') || error.message.includes('unavailable')) {
+        throw new Error('This video is private or unavailable. Please use a public video.');
+      }
+      throw new Error(`Failed to fetch transcript: ${error.message}`);
+    }
+    throw new Error('Failed to fetch YouTube transcript. Please try a different video with captions enabled.');
   }
 }
 

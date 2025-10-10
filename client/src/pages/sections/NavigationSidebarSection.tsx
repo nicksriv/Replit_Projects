@@ -56,7 +56,7 @@ const workspaceItems = [
     id: "youtube-knowledge",
     label: "YouTube Knowledge",
     icon: "/figmaAssets/icon-15.svg",
-    route: "/youtube",
+    route: "/youtube-knowledge",
   },
   {
     id: "reports",

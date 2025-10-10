@@ -35,7 +35,7 @@ function Router() {
         <Route path="/learners" component={LearnerManagement} />
         <Route path="/skills" component={SkillsManagement} />
         <Route path="/live-classes" component={LiveClassesPage} />
-        <Route path="/youtube" component={YoutubeKnowledgePage} />
+        <Route path="/youtube-knowledge" component={YoutubeKnowledgePage} />
         <Route path="/reports" component={Reports} />
         <Route path="/marketing" component={Marketing} />
         <Route path="/settings" component={Settings} />

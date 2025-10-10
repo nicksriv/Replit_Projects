@@ -1,5 +1,15 @@
 import { YoutubeTranscript } from 'youtube-transcript';
+import ytdl from '@distube/ytdl-core';
+import { createWriteStream } from 'fs';
+import { unlink } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import OpenAI from 'openai';
 import { generateEmbedding, chunkText, cosineSimilarity, generateChatCompletion } from './openai';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export interface YouTubeAnalysisResult {
   analysisId: number;
@@ -33,32 +43,110 @@ export async function extractYouTubeVideoId(url: string): Promise<string | null>
   return null;
 }
 
-export async function getYouTubeTranscript(videoId: string): Promise<string> {
+async function downloadYouTubeAudio(videoId: string): Promise<string> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      const audioPath = join(tmpdir(), `youtube-${videoId}-${Date.now()}.mp3`);
+      
+      console.log(`Downloading audio for video: ${videoId}`);
+      
+      const stream = ytdl(videoUrl, {
+        filter: 'audioonly',
+        quality: 'lowestaudio',
+      });
+      
+      const writeStream = createWriteStream(audioPath);
+      
+      stream.pipe(writeStream);
+      
+      writeStream.on('finish', () => {
+        console.log(`Audio downloaded to: ${audioPath}`);
+        resolve(audioPath);
+      });
+      
+      writeStream.on('error', (error) => {
+        reject(new Error(`Failed to download audio: ${error.message}`));
+      });
+      
+      stream.on('error', (error) => {
+        reject(new Error(`Failed to stream audio: ${error.message}`));
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+async function transcribeAudioWithWhisper(audioPath: string): Promise<string> {
   try {
-    console.log(`Fetching transcript for video ID: ${videoId}`);
-    const transcript = await YoutubeTranscript.fetchTranscript(videoId);
+    console.log(`Transcribing audio file: ${audioPath}`);
     
-    if (!transcript || transcript.length === 0) {
-      throw new Error('No captions available for this video. Please try a video with subtitles/captions enabled.');
+    const transcription = await openai.audio.transcriptions.create({
+      file: require('fs').createReadStream(audioPath),
+      model: 'whisper-1',
+      language: 'en', // You can make this dynamic or remove to auto-detect
+    });
+    
+    console.log(`Transcription complete, length: ${transcription.text.length} characters`);
+    return transcription.text;
+  } catch (error) {
+    console.error('Whisper transcription error:', error);
+    throw new Error(`Failed to transcribe audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+export async function getYouTubeTranscript(videoId: string): Promise<string> {
+  let audioPath: string | null = null;
+  
+  try {
+    console.log(`Generating transcript for video ID: ${videoId}`);
+    
+    // First, try to get existing captions (faster and free)
+    try {
+      const transcript = await YoutubeTranscript.fetchTranscript(videoId);
+      if (transcript && transcript.length > 0) {
+        const fullTranscript = transcript.map(item => item.text).join(' ');
+        console.log(`Successfully fetched existing captions, length: ${fullTranscript.length} characters`);
+        return fullTranscript;
+      }
+    } catch (captionError) {
+      console.log('No captions available, will use Whisper to generate transcript');
     }
     
-    const fullTranscript = transcript.map(item => item.text).join(' ');
-    console.log(`Successfully fetched transcript, length: ${fullTranscript.length} characters`);
-    return fullTranscript;
-  } catch (error) {
-    console.error(`Transcript fetch error for ${videoId}:`, error);
+    // If no captions, download audio and use Whisper
+    audioPath = await downloadYouTubeAudio(videoId);
+    const transcript = await transcribeAudioWithWhisper(audioPath);
     
-    // Provide more specific error messages
-    if (error instanceof Error) {
-      if (error.message.includes('Could not find captions')) {
-        throw new Error('This video does not have captions/subtitles available. Please use a video with captions enabled.');
+    // Clean up the audio file
+    if (audioPath) {
+      await unlink(audioPath);
+      console.log(`Cleaned up audio file: ${audioPath}`);
+    }
+    
+    return transcript;
+  } catch (error) {
+    // Clean up on error
+    if (audioPath) {
+      try {
+        await unlink(audioPath);
+      } catch (unlinkError) {
+        console.error('Failed to clean up audio file:', unlinkError);
       }
+    }
+    
+    console.error(`Transcript generation error for ${videoId}:`, error);
+    
+    if (error instanceof Error) {
       if (error.message.includes('private') || error.message.includes('unavailable')) {
         throw new Error('This video is private or unavailable. Please use a public video.');
       }
-      throw new Error(`Failed to fetch transcript: ${error.message}`);
+      if (error.message.includes('age')) {
+        throw new Error('This video is age-restricted and cannot be processed.');
+      }
+      throw new Error(`Failed to generate transcript: ${error.message}`);
     }
-    throw new Error('Failed to fetch YouTube transcript. Please try a different video with captions enabled.');
+    throw new Error('Failed to generate YouTube transcript. Please try a different video.');
   }
 }
 

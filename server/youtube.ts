@@ -1,5 +1,5 @@
 import { YoutubeTranscript } from 'youtube-transcript';
-import ytdl from '@distube/ytdl-core';
+import play from 'play-dl';
 import { createWriteStream, createReadStream } from 'fs';
 import { unlink } from 'fs/promises';
 import { tmpdir } from 'os';
@@ -47,7 +47,7 @@ async function downloadYouTubeAudio(videoId: string): Promise<string> {
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
   const audioPath = join(tmpdir(), `youtube-${videoId}-${Date.now()}.mp3`);
   
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     let writeStream: ReturnType<typeof createWriteStream> | null = null;
     
     const cleanupOnError = async (error: Error) => {
@@ -69,11 +69,11 @@ async function downloadYouTubeAudio(videoId: string): Promise<string> {
     try {
       console.log(`Downloading audio for video: ${videoId}`);
       
-      const stream = ytdl(videoUrl, {
-        filter: 'audioonly',
-        quality: 'lowestaudio',
+      const streamData = await play.stream(videoUrl, {
+        quality: 2, // Higher quality audio
       });
       
+      const stream = streamData.stream;
       writeStream = createWriteStream(audioPath);
       
       stream.pipe(writeStream);

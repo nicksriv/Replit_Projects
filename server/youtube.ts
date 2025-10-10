@@ -46,6 +46,36 @@ export async function extractYouTubeVideoId(url: string): Promise<string | null>
   return null;
 }
 
+async function getVideoMetadata(videoId: string): Promise<{ title: string; channelName: string }> {
+  try {
+    const url = `https://www.youtube.com/watch?v=${videoId}`;
+    const response = await fetch(url);
+    const html = await response.text();
+    
+    // Extract title from meta tags or page title
+    let title = 'YouTube Video';
+    const titleMatch = html.match(/<meta name="title" content="([^"]+)"/) || 
+                      html.match(/<title>([^<]+)<\/title>/);
+    if (titleMatch && titleMatch[1]) {
+      title = titleMatch[1].replace(' - YouTube', '').trim();
+    }
+    
+    // Extract channel name from meta tags
+    let channelName = 'YouTube Channel';
+    const channelMatch = html.match(/<link itemprop="name" content="([^"]+)">/) ||
+                        html.match(/"author":"([^"]+)"/);
+    if (channelMatch && channelMatch[1]) {
+      channelName = channelMatch[1].trim();
+    }
+    
+    console.log(`Extracted metadata - Title: ${title}, Channel: ${channelName}`);
+    return { title, channelName };
+  } catch (error) {
+    console.error('Failed to fetch video metadata:', error);
+    return { title: `YouTube Video ${videoId}`, channelName: 'YouTube Channel' };
+  }
+}
+
 async function downloadYouTubeAudio(videoId: string): Promise<string> {
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
   const audioPath = join(tmpdir(), `youtube-${videoId}-${Date.now()}.mp3`);
@@ -97,28 +127,41 @@ async function transcribeAudioWithWhisper(audioPath: string): Promise<string> {
 }
 
 export async function getYouTubeTranscript(videoId: string): Promise<string> {
-  let audioPath: string | null = null;
-  
   try {
     console.log(`Generating transcript for video ID: ${videoId}`);
     
-    // First, try to get existing captions (faster and free)
+    // Try to get existing captions - this is the most reliable method
+    // Try multiple languages in order of preference
+    const languages = ['en', 'en-US', 'en-GB'];
+    
+    for (const lang of languages) {
+      try {
+        const transcript = await YoutubeTranscript.fetchTranscript(videoId, { lang });
+        if (transcript && transcript.length > 0) {
+          const fullTranscript = transcript.map(item => item.text).join(' ');
+          console.log(`Successfully fetched ${lang} captions, length: ${fullTranscript.length} characters`);
+          return fullTranscript;
+        }
+      } catch (langError) {
+        console.log(`No ${lang} captions available, trying next option...`);
+      }
+    }
+    
+    // Try without specifying language (auto-detect)
     try {
       const transcript = await YoutubeTranscript.fetchTranscript(videoId);
       if (transcript && transcript.length > 0) {
         const fullTranscript = transcript.map(item => item.text).join(' ');
-        console.log(`Successfully fetched existing captions, length: ${fullTranscript.length} characters`);
+        console.log(`Successfully fetched auto-detected captions, length: ${fullTranscript.length} characters`);
         return fullTranscript;
       }
-    } catch (captionError) {
-      console.log('No captions available, will use Whisper to generate transcript');
+    } catch (autoError) {
+      console.log('No auto-detected captions available');
     }
     
-    // If no captions, download audio and use Whisper
-    audioPath = await downloadYouTubeAudio(videoId);
-    const transcript = await transcribeAudioWithWhisper(audioPath);
+    // If we get here, no captions are available
+    throw new Error('No captions/subtitles available for this video. Please use a video with captions enabled.');
     
-    return transcript;
   } catch (error) {
     console.error(`Transcript generation error for ${videoId}:`, error);
     
@@ -129,19 +172,12 @@ export async function getYouTubeTranscript(videoId: string): Promise<string> {
       if (error.message.includes('age')) {
         throw new Error('This video is age-restricted and cannot be processed.');
       }
+      if (error.message.includes('captions') || error.message.includes('subtitles')) {
+        throw error; // Re-throw our custom caption error
+      }
       throw new Error(`Failed to generate transcript: ${error.message}`);
     }
-    throw new Error('Failed to generate YouTube transcript. Please try a different video.');
-  } finally {
-    // Always clean up the audio file, even on success or error
-    if (audioPath) {
-      try {
-        await unlink(audioPath);
-        console.log(`Cleaned up audio file: ${audioPath}`);
-      } catch (unlinkError) {
-        console.error('Failed to clean up audio file (non-critical):', unlinkError);
-      }
-    }
+    throw new Error('Failed to generate YouTube transcript. Please try a different video with captions enabled.');
   }
 }
 
@@ -156,14 +192,17 @@ export async function analyzeYouTubeVideo(
     throw new Error('Invalid YouTube URL');
   }
 
-  const transcript = await getYouTubeTranscript(videoId);
+  // Fetch metadata and transcript in parallel
+  const [metadata, transcript] = await Promise.all([
+    getVideoMetadata(videoId),
+    getYouTubeTranscript(videoId)
+  ]);
   
   if (!transcript || transcript.trim().length === 0) {
     throw new Error('No transcript available for this video');
   }
 
-  const videoTitle = `YouTube Video ${videoId}`;
-  const channelName = "YouTube Channel";
+  const { title: videoTitle, channelName } = metadata;
   
   const analysis = await storage.createYoutubeAnalysis({
     videoId,

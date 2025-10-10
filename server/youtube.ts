@@ -1,11 +1,14 @@
 import { YoutubeTranscript } from 'youtube-transcript';
-import play from 'play-dl';
-import { createWriteStream, createReadStream } from 'fs';
+import { createReadStream } from 'fs';
 import { unlink } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import OpenAI from 'openai';
 import { generateEmbedding, chunkText, cosineSimilarity, generateChatCompletion } from './openai';
+
+const execAsync = promisify(exec);
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -47,53 +50,32 @@ async function downloadYouTubeAudio(videoId: string): Promise<string> {
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
   const audioPath = join(tmpdir(), `youtube-${videoId}-${Date.now()}.mp3`);
   
-  return new Promise(async (resolve, reject) => {
-    let writeStream: ReturnType<typeof createWriteStream> | null = null;
+  try {
+    console.log(`Downloading audio for video: ${videoId}`);
     
-    const cleanupOnError = async (error: Error) => {
-      try {
-        if (writeStream) {
-          writeStream.destroy();
-        }
-        await unlink(audioPath);
-        console.log(`Cleaned up temp file after error: ${audioPath}`);
-      } catch (cleanupError) {
-        // Ignore ENOENT errors (file never created), log others
-        if ((cleanupError as any).code !== 'ENOENT') {
-          console.error('Failed to cleanup temp file:', cleanupError);
-        }
-      }
-      reject(error);
-    };
+    // Use yt-dlp to download audio (most reliable method)
+    const command = `yt-dlp -x --audio-format mp3 --audio-quality 5 --no-progress -o "${audioPath}" "${videoUrl}"`;
     
+    await execAsync(command, {
+      maxBuffer: 100 * 1024 * 1024, // 100MB buffer for large videos
+    });
+    
+    console.log(`Audio downloaded to: ${audioPath}`);
+    return audioPath;
+  } catch (error) {
+    // Clean up on error
     try {
-      console.log(`Downloading audio for video: ${videoId}`);
-      
-      const streamData = await play.stream(videoUrl, {
-        quality: 2, // Higher quality audio
-      });
-      
-      const stream = streamData.stream;
-      writeStream = createWriteStream(audioPath);
-      
-      stream.pipe(writeStream);
-      
-      writeStream.on('finish', () => {
-        console.log(`Audio downloaded to: ${audioPath}`);
-        resolve(audioPath);
-      });
-      
-      writeStream.on('error', (error) => {
-        cleanupOnError(new Error(`Failed to write audio: ${error.message}`));
-      });
-      
-      stream.on('error', (error) => {
-        cleanupOnError(new Error(`Failed to stream audio: ${error.message}`));
-      });
-    } catch (error) {
-      cleanupOnError(error instanceof Error ? error : new Error('Unknown download error'));
+      await unlink(audioPath);
+    } catch (cleanupError) {
+      // Ignore if file doesn't exist
+      if ((cleanupError as any).code !== 'ENOENT') {
+        console.error('Failed to cleanup temp file:', cleanupError);
+      }
     }
-  });
+    
+    console.error('Download error:', error);
+    throw new Error(`Failed to download audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 async function transcribeAudioWithWhisper(audioPath: string): Promise<string> {

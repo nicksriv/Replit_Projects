@@ -4,15 +4,33 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Youtube, MessageCircle, Send, Sparkles } from "lucide-react";
+import { Loader2, Youtube, MessageCircle, Send, Sparkles, Languages } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { YoutubeAnalysis, YoutubeQuestion } from "@shared/schema";
+import type { YoutubeAnalysis, YoutubeQuestion, YoutubeTranslation } from "@shared/schema";
+
+const SUPPORTED_LANGUAGES = [
+  { code: 'hi-IN', name: 'Hindi' },
+  { code: 'ta-IN', name: 'Tamil' },
+  { code: 'te-IN', name: 'Telugu' },
+  { code: 'bn-IN', name: 'Bengali' },
+  { code: 'gu-IN', name: 'Gujarati' },
+  { code: 'kn-IN', name: 'Kannada' },
+  { code: 'ml-IN', name: 'Malayalam' },
+  { code: 'mr-IN', name: 'Marathi' },
+  { code: 'pa-IN', name: 'Punjabi' },
+  { code: 'or-IN', name: 'Odia' },
+  { code: 'as-IN', name: 'Assamese' },
+  { code: 'ur-IN', name: 'Urdu' },
+];
 
 export default function YoutubeKnowledgePage() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [selectedAnalysisId, setSelectedAnalysisId] = useState<number | null>(null);
   const [chatQuestion, setChatQuestion] = useState("");
+  const [selectedLanguage, setSelectedLanguage] = useState("");
+  const [viewingTranslation, setViewingTranslation] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Fetch all analyses
@@ -23,6 +41,12 @@ export default function YoutubeKnowledgePage() {
   // Fetch questions for selected analysis
   const { data: questions = [], isLoading: questionsLoading } = useQuery<YoutubeQuestion[]>({
     queryKey: [`/api/youtube/questions/${selectedAnalysisId}`],
+    enabled: !!selectedAnalysisId,
+  });
+
+  // Fetch translations for selected analysis
+  const { data: translations = [] } = useQuery<YoutubeTranslation[]>({
+    queryKey: [`/api/youtube/translations/${selectedAnalysisId}`],
     enabled: !!selectedAnalysisId,
   });
 
@@ -69,6 +93,37 @@ export default function YoutubeKnowledgePage() {
     },
   });
 
+  // Translate mutation
+  const translateMutation = useMutation({
+    mutationFn: async ({ analysisId, targetLanguageCode, targetLanguageName }: { 
+      analysisId: number; 
+      targetLanguageCode: string;
+      targetLanguageName: string;
+    }) => {
+      const res = await apiRequest("POST", "/api/youtube/translate", { 
+        analysisId, 
+        targetLanguageCode,
+        targetLanguageName 
+      });
+      return await res.json();
+    },
+    onSuccess: (data: YoutubeTranslation) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/youtube/translations/${selectedAnalysisId}`] });
+      setViewingTranslation(data.languageCode);
+      toast({
+        title: "Translation Complete",
+        description: `Transcript translated to ${data.languageName} successfully.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Translation Failed",
+        description: error.message || "Failed to translate. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleAnalyze = () => {
     if (!youtubeUrl.trim()) {
       toast({
@@ -101,7 +156,28 @@ export default function YoutubeKnowledgePage() {
     askMutation.mutate({ analysisId: selectedAnalysisId, question: chatQuestion });
   };
 
+  const handleTranslate = () => {
+    if (!selectedAnalysisId || !selectedLanguage) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a language to translate to.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const languageName = SUPPORTED_LANGUAGES.find(l => l.code === selectedLanguage)?.name || selectedLanguage;
+    translateMutation.mutate({ 
+      analysisId: selectedAnalysisId, 
+      targetLanguageCode: selectedLanguage,
+      targetLanguageName: languageName
+    });
+  };
+
   const selectedAnalysis = analyses.find(a => a.id === selectedAnalysisId);
+  const currentTranslation = viewingTranslation 
+    ? translations.find(t => t.languageCode === viewingTranslation)
+    : null;
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -284,21 +360,84 @@ export default function YoutubeKnowledgePage() {
         </Card>
       </div>
 
-      {/* Transcript Display */}
+      {/* Transcript Display with Translation */}
       {selectedAnalysis && (
         <Card>
           <CardHeader>
-            <CardTitle>Video Transcript</CardTitle>
-            <CardDescription>
-              {selectedAnalysis.videoTitle} by {selectedAnalysis.channelName}
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  {currentTranslation ? (
+                    <>
+                      <Languages className="h-5 w-5" />
+                      Translated Transcript ({currentTranslation.languageName})
+                    </>
+                  ) : (
+                    'Video Transcript (English)'
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  {selectedAnalysis.videoTitle} by {selectedAnalysis.channelName}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                {translations.length > 0 && (
+                  <Select value={viewingTranslation || ""} onValueChange={setViewingTranslation}>
+                    <SelectTrigger className="w-[150px]" data-testid="select-view-translation">
+                      <SelectValue placeholder="View Translation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Original (English)</SelectItem>
+                      {translations.map(t => (
+                        <SelectItem key={t.id} value={t.languageCode}>
+                          {t.languageName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div
               data-testid="text-transcript"
               className="prose prose-sm max-w-none bg-muted p-4 rounded-lg max-h-[400px] overflow-y-auto whitespace-pre-wrap"
             >
-              {selectedAnalysis.transcript}
+              {currentTranslation ? currentTranslation.translatedTranscript : selectedAnalysis.transcript}
+            </div>
+
+            {/* Translation Controls */}
+            <div className="flex items-center gap-2 pt-4 border-t">
+              <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                <SelectTrigger className="w-[200px]" data-testid="select-language">
+                  <SelectValue placeholder="Select language to translate" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORTED_LANGUAGES.map(lang => (
+                    <SelectItem key={lang.code} value={lang.code}>
+                      {lang.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                data-testid="button-translate"
+                onClick={handleTranslate}
+                disabled={!selectedLanguage || translateMutation.isPending}
+              >
+                {translateMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Translating...
+                  </>
+                ) : (
+                  <>
+                    <Languages className="h-4 w-4 mr-2" />
+                    Translate to {selectedLanguage && SUPPORTED_LANGUAGES.find(l => l.code === selectedLanguage)?.name}
+                  </>
+                )}
+              </Button>
             </div>
           </CardContent>
         </Card>

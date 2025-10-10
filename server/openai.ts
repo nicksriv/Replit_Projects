@@ -981,3 +981,88 @@ Style: Clean, modern, educational, professional presentation style. Use corporat
     throw new Error(`Failed to generate slide image: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
+
+// YouTube Knowledge Base Functions
+export async function generateEmbedding(text: string): Promise<number[]> {
+  const openaiClient = await getOpenAI();
+  const response = await openaiClient.embeddings.create({
+    model: "text-embedding-3-small",
+    input: text,
+  });
+  
+  return response.data[0].embedding;
+}
+
+export async function generateChatCompletion(
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>
+): Promise<string> {
+  const openaiClient = await getOpenAI();
+  
+  // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+  try {
+    const response = await openaiClient.chat.completions.create({
+      model: "gpt-5",
+      messages,
+      max_tokens: 1000,
+    });
+    
+    return response.choices[0].message.content || "";
+  } catch (error) {
+    // Fallback to gpt-4 if gpt-5 fails
+    const response = await openaiClient.chat.completions.create({
+      model: "gpt-4",
+      messages,
+      temperature: 0.7,
+      max_tokens: 1000,
+    });
+    
+    return response.choices[0].message.content || "";
+  }
+}
+
+export function chunkText(text: string, maxTokens: number = 500, overlap: number = 50): string[] {
+  const words = text.split(/\s+/);
+  const chunks: string[] = [];
+  
+  let currentChunk: string[] = [];
+  let currentTokens = 0;
+  
+  for (const word of words) {
+    const wordTokens = Math.ceil(word.length / 4);
+    
+    if (currentTokens + wordTokens > maxTokens && currentChunk.length > 0) {
+      chunks.push(currentChunk.join(" "));
+      
+      const overlapWords = currentChunk.slice(-overlap);
+      currentChunk = overlapWords;
+      currentTokens = overlapWords.reduce((sum, w) => sum + Math.ceil(w.length / 4), 0);
+    }
+    
+    currentChunk.push(word);
+    currentTokens += wordTokens;
+  }
+  
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk.join(" "));
+  }
+  
+  return chunks;
+}
+
+export function cosineSimilarity(vecA: number[], vecB: number[]): number {
+  if (vecA.length !== vecB.length) {
+    throw new Error("Vectors must have the same length");
+  }
+  
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  
+  for (let i = 0; i < vecA.length; i++) {
+    dotProduct += vecA[i] * vecB[i];
+    normA += vecA[i] * vecA[i];
+    normB += vecB[i] * vecB[i];
+  }
+  
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}

@@ -890,3 +890,50 @@ export const updateRecordedVideoSchema = insertRecordedVideoSchema.partial();
 export type InsertRecordedVideo = z.infer<typeof insertRecordedVideoSchema>;
 export type UpdateRecordedVideo = z.infer<typeof updateRecordedVideoSchema>;
 export type RecordedVideo = typeof recordedVideos.$inferSelect;
+
+// YouTube Knowledge Base
+export const youtubeAnalyses = pgTable("youtube_analyses", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  videoId: text("video_id").notNull(), // YouTube video ID
+  videoTitle: text("video_title").notNull(),
+  videoUrl: text("video_url").notNull(),
+  transcriptText: text("transcript_text").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const youtubeChunks = pgTable("youtube_chunks", {
+  id: serial("id").primaryKey(),
+  analysisId: integer("analysis_id").references(() => youtubeAnalyses.id),
+  chunkIndex: integer("chunk_index").notNull(),
+  content: text("content").notNull(),
+  embedding: text("embedding").notNull(), // JSON array of numbers
+});
+
+export const youtubeQuestions = pgTable("youtube_questions", {
+  id: serial("id").primaryKey(),
+  analysisId: integer("analysis_id").references(() => youtubeAnalyses.id),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertYoutubeAnalysisSchema = createInsertSchema(youtubeAnalyses).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+});
+
+export const insertYoutubeChunkSchema = createInsertSchema(youtubeChunks).omit({
+  id: true,
+});
+
+export const insertYoutubeQuestionSchema = createInsertSchema(youtubeQuestions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertYoutubeAnalysis = z.infer<typeof insertYoutubeAnalysisSchema>;
+export type YoutubeAnalysis = typeof youtubeAnalyses.$inferSelect;
+export type YoutubeChunk = typeof youtubeChunks.$inferSelect;
+export type YoutubeQuestion = typeof youtubeQuestions.$inferSelect;

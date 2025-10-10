@@ -1,4 +1,3 @@
-import { YoutubeTranscript } from 'youtube-transcript';
 import { createReadStream } from 'fs';
 import { unlink } from 'fs/promises';
 import { tmpdir } from 'os';
@@ -130,43 +129,75 @@ export async function getYouTubeTranscript(videoId: string): Promise<string> {
   try {
     console.log(`Generating transcript for video ID: ${videoId}`);
     
-    // Try common language codes in order of preference
-    const languageCodesToTry = [
-      'en', 'en-US', 'en-GB',  // English variants
-      'hi', 'ta', 'te', 'bn',  // Indian languages
-      'es', 'fr', 'de', 'pt',  // European languages
-      'ja', 'ko', 'zh', 'ar',  // Asian/Middle Eastern languages
-    ];
+    // Step 1: Fetch video page to extract API key
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    const pageResponse = await fetch(videoUrl);
+    const html = await pageResponse.text();
     
-    // First try without specifying language (auto-detect)
-    try {
-      const transcript = await YoutubeTranscript.fetchTranscript(videoId);
-      if (transcript && transcript.length > 0) {
-        const fullTranscript = transcript.map(item => item.text).join(' ');
-        console.log(`Successfully fetched auto-detected captions, length: ${fullTranscript.length} characters`);
-        return fullTranscript;
-      }
-    } catch (autoError) {
-      console.log(`Auto-detect failed, trying specific languages...`);
+    const apiKeyMatch = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/);
+    if (!apiKeyMatch) {
+      throw new Error('Could not extract API key from video page');
+    }
+    const apiKey = apiKeyMatch[1];
+    
+    // Step 2: Call Innertube API to get player response (using Android client for better caption access)
+    const playerEndpoint = `https://www.youtube.com/youtubei/v1/player?key=${apiKey}`;
+    const playerResponse = await fetch(playerEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        context: {
+          client: {
+            clientName: 'ANDROID',
+            clientVersion: '20.10.38'
+          }
+        },
+        videoId: videoId
+      })
+    });
+    
+    const playerData = await playerResponse.json();
+    
+    // Step 3: Extract caption tracks
+    const captionTracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    if (!captionTracks || captionTracks.length === 0) {
+      throw new Error('No captions/subtitles available for this video');
     }
     
-    // Try each language code
-    for (const lang of languageCodesToTry) {
-      try {
-        const transcript = await YoutubeTranscript.fetchTranscript(videoId, { lang });
-        if (transcript && transcript.length > 0) {
-          const fullTranscript = transcript.map(item => item.text).join(' ');
-          console.log(`Successfully fetched ${lang} captions, length: ${fullTranscript.length} characters`);
-          return fullTranscript;
-        }
-      } catch (langError) {
-        // Continue to next language
-        continue;
+    // Step 4: Find English track first, otherwise use first available
+    let selectedTrack = captionTracks.find((track: any) => track.languageCode?.startsWith('en')) || captionTracks[0];
+    const langCode = selectedTrack.languageCode || 'unknown';
+    console.log(`Using transcript in language: ${langCode}`);
+    
+    // Step 5: Fetch transcript XML
+    const transcriptResponse = await fetch(selectedTrack.baseUrl);
+    const transcriptXml = await transcriptResponse.text();
+    
+    // Step 6: Parse XML to extract text (simple regex parsing)
+    const textRegex = /<text[^>]*>([^<]*)<\/text>/g;
+    const transcriptTexts: string[] = [];
+    let match;
+    
+    while ((match = textRegex.exec(transcriptXml)) !== null) {
+      const text = match[1]
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .trim();
+      if (text) {
+        transcriptTexts.push(text);
       }
     }
     
-    // If we get here, no captions were found in any language
-    throw new Error('This video does not have captions/subtitles available. Please try a different video with captions enabled.');
+    if (transcriptTexts.length === 0) {
+      throw new Error('No transcript text found in captions');
+    }
+    
+    const fullTranscript = transcriptTexts.join(' ');
+    console.log(`Successfully fetched captions, length: ${fullTranscript.length} characters`);
+    return fullTranscript;
     
   } catch (error: any) {
     console.error(`Transcript generation error for ${videoId}:`, error);

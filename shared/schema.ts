@@ -919,6 +919,15 @@ export const youtubeQuestions = pgTable("youtube_questions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const youtubeTranslations = pgTable("youtube_translations", {
+  id: serial("id").primaryKey(),
+  analysisId: integer("analysis_id").references(() => youtubeAnalyses.id),
+  languageCode: text("language_code").notNull(),
+  languageName: text("language_name").notNull(),
+  translatedTranscript: text("translated_transcript").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertYoutubeAnalysisSchema = createInsertSchema(youtubeAnalyses).omit({
   id: true,
   userId: true,
@@ -934,9 +943,16 @@ export const insertYoutubeQuestionSchema = createInsertSchema(youtubeQuestions).
   createdAt: true,
 });
 
+export const insertYoutubeTranslationSchema = createInsertSchema(youtubeTranslations).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertYoutubeAnalysis = z.infer<typeof insertYoutubeAnalysisSchema>;
 export type InsertYoutubeChunk = z.infer<typeof insertYoutubeChunkSchema>;
 export type InsertYoutubeQuestion = z.infer<typeof insertYoutubeQuestionSchema>;
+export type InsertYoutubeTranslation = z.infer<typeof insertYoutubeTranslationSchema>;
 export type YoutubeAnalysis = typeof youtubeAnalyses.$inferSelect;
 export type YoutubeChunk = typeof youtubeChunks.$inferSelect;
 export type YoutubeQuestion = typeof youtubeQuestions.$inferSelect;
+export type YoutubeTranslation = typeof youtubeTranslations.$inferSelect;

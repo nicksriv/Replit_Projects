@@ -270,6 +270,9 @@ export interface IStorage {
   createYoutubeChunk(chunk: InsertYoutubeChunk): Promise<YoutubeChunk>;
   getYoutubeQuestions(analysisId: number): Promise<YoutubeQuestion[]>;
   createYoutubeQuestion(question: InsertYoutubeQuestion): Promise<YoutubeQuestion>;
+  getYoutubeTranslations(analysisId: number): Promise<YoutubeTranslation[]>;
+  getYoutubeTranslation(analysisId: number, languageCode: string): Promise<YoutubeTranslation | undefined>;
+  createYoutubeTranslation(translation: InsertYoutubeTranslation): Promise<YoutubeTranslation>;
 }
 
 export class MemStorage implements IStorage {
@@ -301,6 +304,7 @@ export class MemStorage implements IStorage {
   private youtubeAnalysesMap: Map<number, YoutubeAnalysis>;
   private youtubeChunksMap: Map<number, YoutubeChunk>;
   private youtubeQuestionsMap: Map<number, YoutubeQuestion>;
+  private youtubeTranslationsMap: Map<number, YoutubeTranslation>;
   private currentUserId: number;
   private currentCourseId: number;
   private currentRevenueId: number;
@@ -329,6 +333,7 @@ export class MemStorage implements IStorage {
   private currentYoutubeAnalysisId: number;
   private currentYoutubeChunkId: number;
   private currentYoutubeQuestionId: number;
+  private currentYoutubeTranslationId: number;
 
   constructor() {
     this.users = new Map();
@@ -359,6 +364,7 @@ export class MemStorage implements IStorage {
     this.youtubeAnalysesMap = new Map();
     this.youtubeChunksMap = new Map();
     this.youtubeQuestionsMap = new Map();
+    this.youtubeTranslationsMap = new Map();
     this.currentUserId = 1;
     this.currentCourseId = 1;
     this.currentRevenueId = 1;
@@ -387,6 +393,7 @@ export class MemStorage implements IStorage {
     this.currentYoutubeAnalysisId = 1;
     this.currentYoutubeChunkId = 1;
     this.currentYoutubeQuestionId = 1;
+    this.currentYoutubeTranslationId = 1;
     
     // Add some sample data for demo
     this.seedSampleData();
@@ -1806,6 +1813,28 @@ export class MemStorage implements IStorage {
     };
     this.youtubeQuestionsMap.set(id, newQuestion);
     return newQuestion;
+  }
+
+  async getYoutubeTranslations(analysisId: number): Promise<YoutubeTranslation[]> {
+    return Array.from(this.youtubeTranslationsMap.values())
+      .filter(t => t.analysisId === analysisId)
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async getYoutubeTranslation(analysisId: number, languageCode: string): Promise<YoutubeTranslation | undefined> {
+    return Array.from(this.youtubeTranslationsMap.values())
+      .find(t => t.analysisId === analysisId && t.languageCode === languageCode);
+  }
+
+  async createYoutubeTranslation(translation: InsertYoutubeTranslation): Promise<YoutubeTranslation> {
+    const id = this.currentYoutubeTranslationId++;
+    const newTranslation: YoutubeTranslation = {
+      ...translation,
+      id,
+      createdAt: new Date(),
+    };
+    this.youtubeTranslationsMap.set(id, newTranslation);
+    return newTranslation;
   }
 }
 

@@ -1915,6 +1915,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Translate YouTube transcript
+  app.post("/api/youtube/translate", async (req, res) => {
+    try {
+      const { analysisId, targetLanguageCode, targetLanguageName } = req.body;
+      
+      if (!analysisId || isNaN(parseInt(analysisId))) {
+        return res.status(400).json({ error: "Invalid analysis ID" });
+      }
+
+      if (!targetLanguageCode) {
+        return res.status(400).json({ error: "Target language code is required" });
+      }
+
+      const analysis = await storage.getYoutubeAnalysis(parseInt(analysisId));
+      if (!analysis) {
+        return res.status(404).json({ error: "Analysis not found" });
+      }
+
+      // Check if translation already exists
+      const existing = await storage.getYoutubeTranslation(parseInt(analysisId), targetLanguageCode);
+      if (existing) {
+        return res.json(existing);
+      }
+
+      // Translate the transcript
+      const { translateInChunks } = await import('./sarvam');
+      const translatedTranscript = await translateInChunks(
+        analysis.transcript,
+        'en-IN', // Source is English
+        targetLanguageCode
+      );
+
+      // Save translation
+      const translation = await storage.createYoutubeTranslation({
+        analysisId: parseInt(analysisId),
+        languageCode: targetLanguageCode,
+        languageName: targetLanguageName,
+        translatedTranscript,
+      });
+
+      res.json(translation);
+    } catch (error) {
+      console.error("Translation error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to translate" 
+      });
+    }
+  });
+
+  // Get translations for an analysis
+  app.get("/api/youtube/translations/:analysisId", async (req, res) => {
+    try {
+      const analysisId = parseInt(req.params.analysisId);
+      
+      if (isNaN(analysisId)) {
+        return res.status(400).json({ error: "Invalid analysis ID" });
+      }
+
+      const translations = await storage.getYoutubeTranslations(analysisId);
+      res.json(translations);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch translations" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

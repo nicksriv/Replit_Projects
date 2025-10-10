@@ -22,14 +22,14 @@ export default function YoutubeKnowledgePage() {
 
   // Fetch questions for selected analysis
   const { data: questions = [], isLoading: questionsLoading } = useQuery<YoutubeQuestion[]>({
-    queryKey: ["/api/youtube/questions", selectedAnalysisId],
+    queryKey: [`/api/youtube/questions/${selectedAnalysisId}`],
     enabled: !!selectedAnalysisId,
   });
 
   // Analyze YouTube video mutation
   const analyzeMutation = useMutation({
     mutationFn: async (url: string) => {
-      const res = await apiRequest("POST", "/api/youtube/analyze", { youtubeUrl: url });
+      const res = await apiRequest("POST", "/api/youtube/analyze", { url });
       return await res.json();
     },
     onSuccess: (data: YoutubeAnalysis) => {
@@ -57,7 +57,7 @@ export default function YoutubeKnowledgePage() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/youtube/questions", selectedAnalysisId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/youtube/questions/${selectedAnalysisId}`] });
       setChatQuestion("");
     },
     onError: (error: Error) => {

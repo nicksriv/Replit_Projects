@@ -1865,20 +1865,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Ask question about YouTube video
-  app.post("/api/youtube/:id/chat", async (req, res) => {
+  // Get questions for an analysis
+  app.get("/api/youtube/questions/:analysisId", async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      const analysisId = parseInt(req.params.analysisId);
+      if (isNaN(analysisId)) {
         return res.status(400).json({ error: "Invalid analysis ID" });
       }
 
-      const { question } = req.body;
+      const questions = await storage.getYoutubeQuestions(analysisId);
+      res.json(questions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch questions" });
+    }
+  });
+
+  // Ask question about YouTube video
+  app.post("/api/youtube/ask", async (req, res) => {
+    try {
+      const { analysisId, question } = req.body;
+      
+      if (!analysisId || isNaN(parseInt(analysisId))) {
+        return res.status(400).json({ error: "Invalid analysis ID" });
+      }
+
       if (!question) {
         return res.status(400).json({ error: "Question is required" });
       }
 
-      const result = await answerQuestion(id, question, storage);
+      const result = await answerQuestion(parseInt(analysisId), question, storage);
       
       res.json(result);
     } catch (error) {
@@ -1890,7 +1905,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all YouTube analyses for a user
-  app.get("/api/youtube", async (req, res) => {
+  app.get("/api/youtube/analyses", async (req, res) => {
     try {
       const userId = 1; // TODO: Get from authenticated user
       const analyses = await storage.getYoutubeAnalyses(userId);

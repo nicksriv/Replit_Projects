@@ -171,10 +171,15 @@ export async function getYouTubeTranscript(videoId: string): Promise<string> {
     
     // Step 5: Fetch transcript XML
     const transcriptResponse = await fetch(selectedTrack.baseUrl);
+    
+    if (!transcriptResponse.ok) {
+      throw new Error(`Failed to fetch transcript: HTTP ${transcriptResponse.status}`);
+    }
+    
     const transcriptXml = await transcriptResponse.text();
     
-    // Step 6: Parse XML to extract text (simple regex parsing)
-    const textRegex = /<text[^>]*>([^<]*)<\/text>/g;
+    // Step 6: Parse XML to extract text (YouTube uses <p> tags)
+    const textRegex = /<p[^>]*>([^<]*)<\/p>/g;
     const transcriptTexts: string[] = [];
     let match;
     
@@ -185,6 +190,7 @@ export async function getYouTubeTranscript(videoId: string): Promise<string> {
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
+        .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)))
         .trim();
       if (text) {
         transcriptTexts.push(text);

@@ -1844,28 +1844,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get YouTube analysis
-  app.get("/api/youtube/:id", async (req, res) => {
+  // Get all YouTube analyses for a user (must be before /:id route)
+  app.get("/api/youtube/analyses", async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ error: "Invalid analysis ID" });
-      }
-
-      const analysis = await storage.getYoutubeAnalysis(id);
-      if (!analysis) {
-        return res.status(404).json({ error: "Analysis not found" });
-      }
-
-      const questions = await storage.getYoutubeQuestions(id);
-      
-      res.json({ ...analysis, questions });
+      const userId = 1; // TODO: Get from authenticated user
+      const analyses = await storage.getYoutubeAnalyses(userId);
+      res.json(analyses);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch analysis" });
+      res.status(500).json({ error: "Failed to fetch analyses" });
     }
   });
 
-  // Get questions for an analysis
+  // Get questions for an analysis (must be before /:id route)
   app.get("/api/youtube/questions/:analysisId", async (req, res) => {
     try {
       const analysisId = parseInt(req.params.analysisId);
@@ -1901,17 +1891,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         error: error instanceof Error ? error.message : "Failed to answer question" 
       });
-    }
-  });
-
-  // Get all YouTube analyses for a user
-  app.get("/api/youtube/analyses", async (req, res) => {
-    try {
-      const userId = 1; // TODO: Get from authenticated user
-      const analyses = await storage.getYoutubeAnalyses(userId);
-      res.json(analyses);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch analyses" });
     }
   });
 
@@ -1964,7 +1943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get translations for an analysis
+  // Get translations for an analysis (must be before /:id route)
   app.get("/api/youtube/translations/:analysisId", async (req, res) => {
     try {
       const analysisId = parseInt(req.params.analysisId);
@@ -1977,6 +1956,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(translations);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch translations" });
+    }
+  });
+
+  // Get YouTube analysis by ID (must be after all specific routes)
+  app.get("/api/youtube/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid analysis ID" });
+      }
+
+      const analysis = await storage.getYoutubeAnalysis(id);
+      if (!analysis) {
+        return res.status(404).json({ error: "Analysis not found" });
+      }
+
+      const questions = await storage.getYoutubeQuestions(id);
+      
+      res.json({ ...analysis, questions });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch analysis" });
     }
   });
 

@@ -308,7 +308,9 @@ export async function answerQuestion(
 
   chunksWithSimilarity.sort((a: any, b: any) => b.similarity - a.similarity);
   
-  const topChunks = chunksWithSimilarity.slice(0, 5).filter((c: any) => c.similarity > 0.7);
+  // Take top 3 chunks - removed the 0.7 threshold as it was too restrictive
+  // Real queries typically score 0.45-0.6 similarity with lyrical content
+  const topChunks = chunksWithSimilarity.slice(0, 3);
 
   if (topChunks.length === 0) {
     return {

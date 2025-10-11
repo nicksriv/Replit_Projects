@@ -72,7 +72,7 @@ export async function translateInChunks(
   text: string,
   sourceLanguage: string = 'en-IN',
   targetLanguage: string = 'hi-IN',
-  chunkSize: number = 5000
+  chunkSize: number = 1800 // Sarvam API has 2000 char limit, use 1800 for safety
 ): Promise<string> {
   if (text.length <= chunkSize) {
     return translateText(text, sourceLanguage, targetLanguage);
@@ -82,12 +82,25 @@ export async function translateInChunks(
   let currentChunk = '';
   const sentences = text.split(/(?<=[.!?])\s+/);
 
-  for (const sentence of sentences) {
-    if ((currentChunk + sentence).length > chunkSize && currentChunk) {
-      chunks.push(currentChunk.trim());
-      currentChunk = sentence;
-    } else {
-      currentChunk += (currentChunk ? ' ' : '') + sentence;
+  // If no sentence breaks found (e.g., song lyrics), split by words
+  if (sentences.length === 1) {
+    const words = text.split(/\s+/);
+    for (const word of words) {
+      if ((currentChunk + ' ' + word).length > chunkSize && currentChunk) {
+        chunks.push(currentChunk.trim());
+        currentChunk = word;
+      } else {
+        currentChunk += (currentChunk ? ' ' : '') + word;
+      }
+    }
+  } else {
+    for (const sentence of sentences) {
+      if ((currentChunk + sentence).length > chunkSize && currentChunk) {
+        chunks.push(currentChunk.trim());
+        currentChunk = sentence;
+      } else {
+        currentChunk += (currentChunk ? ' ' : '') + sentence;
+      }
     }
   }
 

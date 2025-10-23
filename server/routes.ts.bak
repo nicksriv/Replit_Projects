@@ -1,14 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { enhancedYoutubeProcessor } from "./enhanced-youtube";
-import { PythonSarvamBridge } from "./python-sarvam-bridge";
 import { log } from "./vite";
 import { generateCourseContent, type CourseOutlineRequest } from "./openai";
 import { createSCORMPackage, createCoursePDF } from "./exports";
-import OpenAI from 'openai';
 import { CourseLesson } from "@shared/types";
-import { analyzeYouTubeVideo, analyzeYouTubeVideoWithProgress, answerQuestion } from "./youtube";
+import { analyzeYouTubeVideo, answerQuestion } from "./youtube";
 import { 
   insertCourseSchema, 
   updateCourseSchema, 
@@ -48,263 +45,7 @@ import {
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-// Function to answer questions using RAG with embeddings and semantic search
-async function answerQuestionWithTranscript(
-  question: string,
-  transcript: string,
-  videoTitle: string,
-  conversationHistory: any[] = [],
-  analysisId?: number
-) {
-  try {
-    console.log(`[RAG] Starting Q&A processing for question: "${question}"`);
-    console.log(`[RAG] Analysis ID: ${analysisId}, Video: "${videoTitle}"`);
-    
-    let relevantContext = "";
-    let citations: any[] = [];
-    let usedRAG = false;
-
-    // If we have an analysisId, try to use RAG with embeddings
-    if (analysisId) {
-      console.log(`[RAG] Attempting RAG for analysis ID: ${analysisId}`);
-      
-      try {
-        // Generate embedding for the question
-        console.log(`[RAG] Generating embedding for question...`);
-        const { generateEmbedding } = await import('./openai');
-        const questionEmbedding = await generateEmbedding(question);
-        console.log(`[RAG] Question embedding generated successfully, length: ${questionEmbedding.length}`);
-        
-        // Get relevant chunks using semantic similarity
-        console.log(`[RAG] Fetching chunks from database...`);
-        const chunks = await storage.getYoutubeChunks(analysisId);
-        console.log(`[RAG] Found ${chunks.length} chunks for analysis ${analysisId}`);
-        
-        if (chunks.length > 0) {
-          // Calculate cosine similarity for each chunk
-          const chunkScores: Array<{chunk: any, score: number}> = [];
-          
-          console.log(`[RAG] Processing chunks for similarity calculation...`);
-          for (let i = 0; i < chunks.length; i++) {
-            const chunk = chunks[i];
-            try {
-              console.log(`[RAG] Processing chunk ${i + 1}/${chunks.length}, ID: ${chunk.id}`);
-              
-              if (!chunk.embedding) {
-                console.warn(`[RAG] Chunk ${chunk.id} has no embedding data`);
-                continue;
-              }
-              
-              const embedding = JSON.parse(chunk.embedding);
-              console.log(`[RAG] Parsed embedding for chunk ${chunk.id}, length: ${embedding.length}`);
-              
-              // Simple cosine similarity calculation
-              if (Array.isArray(embedding) && Array.isArray(questionEmbedding) && 
-                  embedding.length === questionEmbedding.length) {
-                const similarity = calculateCosineSimilarity(questionEmbedding, embedding);
-                console.log(`[RAG] Chunk ${chunk.id} similarity score: ${similarity.toFixed(4)}`);
-                chunkScores.push({ chunk, score: similarity });
-              } else {
-                console.warn(`[RAG] Embedding dimension mismatch for chunk ${chunk.id}: question=${questionEmbedding.length}, chunk=${embedding.length}`);
-              }
-            } catch (error) {
-              console.error(`[RAG] Error processing chunk ${chunk.id}:`, error);
-            }
-          }
-          
-          // Sort by similarity and take top 5 most relevant chunks
-          const allChunks = chunkScores.sort((a, b) => b.score - a.score);
-          const SIMILARITY_THRESHOLD = 0.0; // Set to 0 for testing - all questions will get responses
-          const topChunks = allChunks.slice(0, 5).filter(item => item.score > SIMILARITY_THRESHOLD);
-          
-          console.log(`[RAG] Found ${topChunks.length} relevant chunks with scores:`, 
-            topChunks.map(item => ({ id: item.chunk.id, score: item.score.toFixed(3) }))
-          );
-          
-          // Log best score for debugging
-          if (allChunks.length > 0) {
-            console.log(`[RAG] Best similarity score: ${allChunks[0].score.toFixed(3)} (threshold: ${SIMILARITY_THRESHOLD})`);
-          }
-          
-          if (topChunks.length > 0) {
-            relevantContext = topChunks.map((item, index) => 
-              `[Video Segment ${index + 1} - Relevance: ${(item.score * 100).toFixed(1)}%]: ${item.chunk.content}`
-            ).join('\n\n');
-            
-            citations = topChunks.map(item => ({
-              chunkId: item.chunk.id,
-              content: item.chunk.content.substring(0, 300) + "...", // More content in citations
-              relevanceScore: item.score,
-              summary: item.chunk.content.substring(0, 150) + "..." // Add summary
-            }));
-            
-            usedRAG = true;
-            console.log(`[RAG] Using RAG context with ${topChunks.length} chunks`);
-          } else {
-            console.log(`[RAG] No chunks met relevance threshold (${SIMILARITY_THRESHOLD}), will provide topic coverage message`);
-            // Set a flag to indicate low relevance
-            relevantContext = "LOW_RELEVANCE_THRESHOLD_NOT_MET";
-          }
-        } else {
-          console.log(`[RAG] No chunks found in database, falling back to full transcript`);
-        }
-      } catch (ragError) {
-        console.error("[RAG] RAG processing failed:", ragError);
-        console.log("[RAG] Falling back to full transcript");
-      }
-    }
-    
-    // Check if we should provide a "topic not covered" response
-    if (relevantContext === "LOW_RELEVANCE_THRESHOLD_NOT_MET") {
-      console.log("[RAG] Providing 'topic not covered' response");
-      
-      const result = {
-        id: Date.now().toString(),
-        question,
-        answer: "This topic is not covered by this video. The question you asked doesn't appear to be directly related to the content discussed in this video. Please try asking about topics that are specifically covered in the video content.",
-        relevantContext: "",
-        contextUsed: "threshold_not_met",
-        citations: [],
-        usedRAG: false,
-        timestamp: new Date().toISOString(),
-        confidence: 0.0
-      };
-
-      return result;
-    }
-    
-    // Fallback to using full transcript if no relevant chunks found but no threshold issue
-    if (!relevantContext) {
-      console.log("[RAG] Using full transcript as context");
-      relevantContext = transcript.substring(0, 6000); // Increased limit for more context
-    }
-
-    console.log(`[RAG] Final context length: ${relevantContext.length} characters`);
-
-    // Build conversation context
-    const messages: any[] = [
-      {
-        role: "system",
-        content: `You are a helpful AI assistant that provides detailed analysis and answers about YouTube videos. Answer questions based on the provided video content with comprehensive detail and context.
-
-Video Title: "${videoTitle}"
-
-Video Content:
-${relevantContext}
-
-Instructions:
-1. Provide detailed, comprehensive answers based on the video content
-2. Include specific examples, quotes, or references from the video when relevant
-3. Give context about what part of the video the information comes from
-4. If the question asks for analysis, provide thoughtful insights and explanations
-5. Structure longer answers with clear sections or bullet points when helpful
-6. When discussing video content, explain the broader context and implications
-7. If information is not available in the provided content, state this clearly
-8. Always aim to be informative and educational while staying accurate to the source material
-
-Respond with detailed, well-structured answers that fully address the user's question.`
-      }
-    ];
-
-    // Add conversation history (last 3 turns to prevent token overflow)
-    if (conversationHistory && conversationHistory.length > 0) {
-      const recentHistory = conversationHistory.slice(-3);
-      recentHistory.forEach(turn => {
-        if (turn.question && turn.answer) {
-          messages.push(
-            { role: "user", content: turn.question },
-            { role: "assistant", content: turn.answer }
-          );
-        }
-      });
-    }
-
-    // Add current question
-    messages.push({ role: "user", content: question });
-
-    console.log(`[RAG] Sending request to OpenAI with ${messages.length} messages`);
-    
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: messages,
-      max_tokens: 800, // Increased for more detailed responses
-      temperature: 0.7
-    });
-
-    const answer = completion.choices[0]?.message?.content || "I couldn't generate a response.";
-    console.log(`[RAG] Generated answer length: ${answer.length} characters`);
-
-    const result = {
-      id: Date.now().toString(),
-      question,
-      answer,
-      citations,
-      confidence: usedRAG ? 0.9 : 0.7,
-      timestamp: new Date().toISOString(),
-      usedRAG
-    };
-
-    console.log(`[RAG] Q&A processing completed successfully. Used RAG: ${usedRAG}, Citations: ${citations.length}`);
-    return result;
-
-  } catch (error) {
-    console.error("[RAG] Error in Q&A processing:", error);
-    throw new Error(`Failed to process question: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
-
-// Helper function to calculate cosine similarity between two vectors
-function calculateCosineSimilarity(vecA: number[], vecB: number[]): number {
-  try {
-    if (!Array.isArray(vecA) || !Array.isArray(vecB)) {
-      return 0;
-    }
-    
-    if (vecA.length !== vecB.length || vecA.length === 0) {
-      return 0;
-    }
-    
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-    
-    for (let i = 0; i < vecA.length; i++) {
-      const a = vecA[i];
-      const b = vecB[i];
-      
-      if (typeof a !== 'number' || typeof b !== 'number' || isNaN(a) || isNaN(b)) {
-        continue;
-      }
-      
-      dotProduct += a * b;
-      normA += a * a;
-      normB += b * b;
-    }
-    
-    if (normA === 0 || normB === 0) {
-      return 0;
-    }
-    
-    const result = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-    return isNaN(result) ? 0 : Math.max(0, Math.min(1, result)); // Clamp between 0 and 1
-  } catch (error) {
-    console.warn("Error calculating cosine similarity:", error);
-    return 0;
-  }
-}
-
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Initialize Python Sarvam bridge
-  const pythonSarvamBridge = new PythonSarvamBridge();
-  
-  // Import progress trackers
-  const { progressTrackers } = await import('./index');
-  
   // Health check endpoint for deployment monitoring
   app.get("/health", async (req, res) => {
     try {
@@ -327,61 +68,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         environment: process.env.NODE_ENV || "development"
       });
     }
-  });
-
-  // Progress tracking for YouTube processing (Server-Sent Events)
-  app.get("/api/youtube/progress/:sessionId", (req, res) => {
-    const { sessionId } = req.params;
-    
-    // Set up SSE headers
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Cache-Control'
-    });
-
-    // Send initial progress
-    const sendProgress = () => {
-      const tracker = progressTrackers.get(sessionId);
-      if (tracker) {
-        res.write(`data: ${JSON.stringify(tracker)}\n\n`);
-        
-        // Close connection and clean up completed trackers
-        if (tracker.completed || tracker.error) {
-          setTimeout(() => {
-            progressTrackers.delete(sessionId);
-            res.end(); // Close the SSE connection
-          }, 3000); // Keep connection open for 3 seconds to ensure final message is received
-        }
-      } else {
-        // If no tracker found, send empty progress and close
-        res.write(`data: ${JSON.stringify({ progress: 0, stage: 'not_found', message: 'Session not found', completed: true })}\n\n`);
-        setTimeout(() => res.end(), 1000);
-      }
-    };
-
-    // Send progress immediately
-    sendProgress();
-
-    // Set up interval to send updates
-    const interval = setInterval(() => {
-      const tracker = progressTrackers.get(sessionId);
-      if (tracker && (tracker.completed || tracker.error)) {
-        clearInterval(interval);
-        sendProgress(); // Send final update
-      } else {
-        sendProgress();
-      }
-    }, 500);
-
-    // Clean up on client disconnect
-    req.on('close', () => {
-      clearInterval(interval);
-      progressTrackers.delete(sessionId);
-      res.end();
-    });
   });
 
   // Course Routes
@@ -2137,156 +1823,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // YouTube Knowledge Base Routes
   
-  // Analyze YouTube video using Python Sarvam implementation
+  // Analyze YouTube video
   app.post("/api/youtube/analyze", async (req, res) => {
-    const { url, sessionId } = req.body;
-    
     try {
+      const { url } = req.body;
       
       if (!url) {
         return res.status(400).json({ error: "YouTube URL is required" });
       }
 
       const userId = 1; // TODO: Get from authenticated user
-      
-      // Initialize progress tracking
-      const updateProgress = (progress: number, stage: string, message: string) => {
-        if (sessionId) {
-          progressTrackers.set(sessionId, { progress, stage, message, completed: false });
-        }
-      };
-      
-      // Initialize progress
-      updateProgress(0, 'initializing', 'Starting video analysis...');
-      
-      // Check if Python Sarvam implementation is available
-      updateProgress(5, 'checking', 'Checking processing capabilities...');
-      const pythonAvailable = await pythonSarvamBridge.isAvailable();
-      
-      if (!pythonAvailable) {
-        console.log("Python Sarvam implementation not available, falling back to original method");
-        updateProgress(10, 'fallback', 'Using fallback processing method...');
-        const result = await analyzeYouTubeVideoWithProgress(url, storage, userId, updateProgress);
-        return res.status(201).json(result);
-      }
-
-      console.log(`Processing YouTube video with Python Sarvam implementation: ${url}`);
-      updateProgress(15, 'processing', 'Extracting video information and transcript...');
-      
-      // Process video using Python Sarvam implementation
-      const pythonResult = await pythonSarvamBridge.processYouTubeVideo(url);
-      
-      if (!pythonResult.success) {
-        console.error(`Python Sarvam processing failed: ${pythonResult.error}`);
-        console.log("Falling back to original YouTube transcript method...");
-        updateProgress(20, 'fallback', 'Processing failed, using alternative method...');
-        
-        // Fallback to original method
-        const fallbackResult = await analyzeYouTubeVideoWithProgress(url, storage, userId, updateProgress);
-        return res.status(201).json(fallbackResult);
-      }
-
-      updateProgress(60, 'storing', 'Processing transcript and generating embeddings...');
-      const { videoInfo, transcript } = pythonResult.data!;
-      
-      // Store the analysis in the database
-      updateProgress(70, 'storing', 'Saving analysis to database...');
-      const analysisData = {
-        videoId: videoInfo.videoId,
-        videoTitle: videoInfo.title,
-        channelName: videoInfo.channelName,
-        videoUrl: url,
-        transcript: transcript.text
-      };
-
-      const analysis = await storage.createYoutubeAnalysis(analysisData, userId);
-      
-      // CRITICAL: Generate embeddings for RAG functionality
-      updateProgress(80, 'embedding', 'Creating text chunks and generating embeddings...');
-      const { chunkText, generateEmbedding } = await import('./openai');
-      const textChunks = chunkText(transcript.text, 500, 50);
-      
-      const chunksWithEmbeddings = await Promise.all(
-        textChunks.map(async (chunk, index) => {
-          // Update progress for each chunk
-          const chunkProgress = 80 + ((index + 1) / textChunks.length) * 15; // 80-95%
-          updateProgress(Math.round(chunkProgress), 'embedding', `Processing chunk ${index + 1}/${textChunks.length}...`);
-          
-          const embedding = await generateEmbedding(chunk);
-          
-          const savedChunk = await storage.createYoutubeChunk({
-            analysisId: analysis.id,
-            chunkIndex: index,
-            content: chunk,
-            embedding: JSON.stringify(embedding),
-          });
-          
-          return {
-            ...savedChunk,
-            embedding,
-          };
-        })
-      );
-      
-      updateProgress(95, 'finalizing', 'Finalizing analysis...');
-      console.log(`Successfully processed video: ${videoInfo.title} (${chunksWithEmbeddings.length} chunks, ${transcript.word_count} words)`);
-      
-      const result = {
-        analysisId: analysis.id,
-        videoId: videoInfo.videoId,
-        videoTitle: videoInfo.title,
-        channelName: videoInfo.channelName,
-        transcript: transcript.text,
-        chunks: chunksWithEmbeddings,
-        metadata: {
-          duration: videoInfo.duration,
-          language: transcript.language,
-          word_count: transcript.word_count,
-          processing_time: transcript.processing_time,
-          chunks_processed: chunksWithEmbeddings.length,
-          provider: transcript.provider,
-          model: transcript.model
-        }
-      };
-
-      updateProgress(100, 'completed', 'Video analysis completed successfully!');
-      if (sessionId) {
-        progressTrackers.set(sessionId, { progress: 100, stage: 'completed', message: 'Analysis completed!', completed: true });
-      }
+      const result = await analyzeYouTubeVideo(url, storage, userId);
       
       res.status(201).json(result);
-      
     } catch (error) {
       console.error("YouTube analysis error:", error);
-      
-      // Update progress with error
-      if (sessionId) {
-        progressTrackers.set(sessionId, { 
-          progress: 0, 
-          stage: 'error', 
-          message: error instanceof Error ? error.message : 'Analysis failed', 
-          completed: true, 
-          error: error instanceof Error ? error.message : 'Unknown error' 
-        });
-      }
-      
       res.status(500).json({ 
         error: error instanceof Error ? error.message : "Failed to analyze YouTube video" 
       });
     }
   });
 
-
   // Get all YouTube analyses for a user (must be before /:id route)
   app.get("/api/youtube/analyses", async (req, res) => {
     try {
       const userId = 1; // TODO: Get from authenticated user
-      console.log("Fetching analyses for userId:", userId);
       const analyses = await storage.getYoutubeAnalyses(userId);
-      console.log("Found analyses:", analyses.length);
       res.json(analyses);
     } catch (error) {
-      console.error("Error fetching analyses:", error);
       res.status(500).json({ error: "Failed to fetch analyses" });
     }
   });
@@ -2333,7 +1897,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Translate YouTube transcript
   app.post("/api/youtube/translate", async (req, res) => {
     try {
-      console.log('[TRANSLATE] Translation request received:', req.body);
       const { analysisId, targetLanguageCode, targetLanguageName } = req.body;
       
       if (!analysisId || isNaN(parseInt(analysisId))) {
@@ -2349,16 +1912,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Analysis not found" });
       }
 
-      console.log('[TRANSLATE] Found analysis:', analysis.videoTitle);
-
       // Check if translation already exists
       const existing = await storage.getYoutubeTranslation(parseInt(analysisId), targetLanguageCode);
       if (existing) {
-        console.log('[TRANSLATE] Returning existing translation');
         return res.json(existing);
       }
-
-      console.log('[TRANSLATE] Starting new translation to', targetLanguageCode);
 
       // Translate the transcript
       const { translateInChunks } = await import('./sarvam');
@@ -2368,8 +1926,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         targetLanguageCode
       );
 
-      console.log('[TRANSLATE] Translation completed, saving to database');
-
       // Save translation
       const translation = await storage.createYoutubeTranslation({
         analysisId: parseInt(analysisId),
@@ -2378,10 +1934,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         translatedTranscript,
       });
 
-      console.log('[TRANSLATE] Translation saved successfully');
       res.json(translation);
     } catch (error) {
-      console.error("[TRANSLATE] Translation error:", error);
+      console.error("Translation error:", error);
       res.status(500).json({ 
         error: error instanceof Error ? error.message : "Failed to translate" 
       });
@@ -2422,364 +1977,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ ...analysis, questions });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch analysis" });
-    }
-  });
-
-
-  // Enhanced YouTube Chatbot Routes
-  app.post("/api/youtube/:analysisId/ask-enhanced", async (req, res) => {
-    try {
-      const { analysisId } = req.params;
-      const { question, conversationHistory = [] } = req.body;
-
-      console.log(`[API] Enhanced Q&A request for analysis ${analysisId}: "${question}"`);
-
-      if (!question) {
-        console.log("[API] Error: Question is required");
-        return res.status(400).json({ error: "Question is required" });
-      }
-
-      const analysisIdInt = parseInt(analysisId);
-      if (isNaN(analysisIdInt)) {
-        console.log("[API] Error: Invalid analysis ID");
-        return res.status(400).json({ error: "Invalid analysis ID" });
-      }
-
-      // Get the analysis from database to access the transcript
-      console.log(`[API] Fetching analysis ${analysisIdInt} from database...`);
-      const analysis = await storage.getYoutubeAnalysis(analysisIdInt);
-      if (!analysis) {
-        console.log(`[API] Error: Analysis ${analysisIdInt} not found in database`);
-        return res.status(404).json({ error: "Video analysis not found" });
-      }
-
-      console.log(`[API] Found analysis: "${analysis.videoTitle}"`);
-      console.log(`[API] Transcript length: ${analysis.transcript.length} characters`);
-
-      // Use RAG to answer the question based on embeddings and transcript
-      const result = await answerQuestionWithTranscript(
-        question,
-        analysis.transcript,
-        analysis.videoTitle,
-        conversationHistory,
-        analysisIdInt // Pass analysisId to enable RAG
-      );
-
-      console.log(`[API] RAG result - Used embeddings: ${result.usedRAG}, Citations: ${result.citations?.length || 0}`);
-
-      // Store the conversation turn in database with enhanced metadata
-      console.log(`[API] Storing Q&A in database...`);
-      await storage.createYoutubeQuestion({
-        analysisId: analysisIdInt,
-        question,
-        answer: result.answer,
-        metadata: JSON.stringify({
-          confidence: result.confidence,
-          model: "gpt-3.5-turbo",
-          timestamp: result.timestamp,
-          usedRAG: result.usedRAG,
-          citations: result.citations || [],
-          citationCount: result.citations?.length || 0
-        })
-      });
-
-      console.log(`[API] Q&A completed successfully, sending response`);
-      res.json({
-        success: true,
-        data: result
-      });
-    } catch (error) {
-      console.error("[API] Error in enhanced Q&A:", error);
-      console.error("[API] Stack trace:", error instanceof Error ? error.stack : 'No stack trace');
-      
-      res.status(500).json({ 
-        error: "Failed to process question",
-        message: error instanceof Error ? error.message : 'Unknown error',
-        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : 'No details') : undefined
-      });
-    }
-  });
-
-  app.post("/api/youtube/:analysisId/semantic-search", async (req, res) => {
-    try {
-      const { analysisId } = req.params;
-      const { query, limit = 5 } = req.body;
-
-      if (!query) {
-        return res.status(400).json({ error: "Search query is required" });
-      }
-
-      const results = await enhancedYoutubeProcessor.performSemanticSearch(
-        parseInt(analysisId),
-        query,
-        limit
-      );
-
-      res.json({
-        success: true,
-        data: results
-      });
-    } catch (error) {
-      console.error("Error in semantic search:", error);
-      res.status(500).json({ 
-        error: "Search failed",
-        message: (error as Error).message
-      });
-    }
-  });
-
-  app.get("/api/youtube/:analysisId/conversation-history", async (req, res) => {
-    try {
-      const { analysisId } = req.params;
-      
-      const questions = await storage.getYoutubeQuestions(parseInt(analysisId));
-      
-      const conversationHistory = questions.map((q, index) => {
-        let metadata;
-        try {
-          metadata = JSON.parse(q.metadata || "{}");
-        } catch (error) {
-          console.error("Error parsing metadata JSON:", error);
-          metadata = {};
-        }
-        
-        return {
-          id: `turn_${q.id}`,
-          question: q.question,
-          answer: q.answer,
-          citations: metadata.citations || [],
-          timestamp: q.createdAt,
-          confidence: metadata.confidence || 0,
-          analysisId
-        };
-      });
-
-      res.json(conversationHistory);
-    } catch (error) {
-      console.error("Error fetching conversation history:", error);
-      res.status(500).json({ 
-        error: "Failed to fetch conversation history",
-        message: (error as Error).message
-      });
-    }
-  });
-
-  // Blog Generation Routes
-  app.post("/api/youtube/:analysisId/generate-blog", async (req, res) => {
-    try {
-      const { analysisId } = req.params;
-      const { blogStyle = "informative", targetAudience = "general", includeImages = false } = req.body;
-
-      console.log(`[BLOG] Generating blog for analysis ${analysisId}`);
-
-      const analysisIdInt = parseInt(analysisId);
-      if (isNaN(analysisIdInt)) {
-        return res.status(400).json({ error: "Invalid analysis ID" });
-      }
-
-      // Get the analysis from database
-      const analysis = await storage.getYoutubeAnalysis(analysisIdInt);
-      if (!analysis) {
-        return res.status(404).json({ error: "Video analysis not found" });
-      }
-
-      console.log(`[BLOG] Found analysis: "${analysis.videoTitle}"`);
-
-      // Check if blog already exists
-      const existingBlog = await storage.getYoutubeBlog(analysisIdInt);
-      if (existingBlog) {
-        console.log(`[BLOG] Blog already exists for analysis ${analysisIdInt}`);
-        return res.json({
-          success: true,
-          data: existingBlog
-        });
-      }
-
-      // Generate blog content using OpenAI
-      const blogPrompt = `Transform the following YouTube video transcript into a well-structured blog post.
-
-Video Title: "${analysis.videoTitle}"
-Channel: ${analysis.channelName}
-
-Style: ${blogStyle}
-Target Audience: ${targetAudience}
-
-Transcript:
-${analysis.transcript}
-
-Please create a comprehensive blog post with:
-1. An engaging title
-2. A compelling introduction that hooks the reader
-3. Well-organized main content with clear headings and subheadings
-4. Key takeaways or insights
-5. A conclusion that summarizes the main points
-6. Suggested tags for SEO
-
-Format the response as a structured blog post with proper headings (use ## for main sections, ### for subsections).
-Make it engaging, informative, and well-formatted for online reading.
-Include relevant quotes from the transcript where appropriate.
-Aim for 800-1200 words.`;
-
-      console.log(`[BLOG] Generating blog content with OpenAI...`);
-
-      const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content: "You are a professional content writer specializing in creating engaging blog posts from video content. Write in a clear, engaging style that captures the essence of the original content while making it suitable for blog readers."
-          },
-          {
-            role: "user",
-            content: blogPrompt
-          }
-        ],
-        max_tokens: 2000,
-        temperature: 0.7
-      });
-
-      const blogContent = completion.choices[0]?.message?.content || "Failed to generate blog content.";
-
-      // Extract title from the generated content (first line after removing #)
-      const lines = blogContent.split('\n');
-      let title = analysis.videoTitle + " - Blog Post";
-      const firstLine = lines[0]?.trim();
-      if (firstLine?.startsWith('#')) {
-        title = firstLine.replace(/^#+\s*/, '').trim();
-      }
-
-      // Generate SEO-friendly slug
-      const slug = title.toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .substring(0, 100);
-
-      // Save blog to database
-      const blogData = {
-        analysisId: analysisIdInt,
-        title,
-        slug,
-        content: blogContent,
-        excerpt: blogContent.substring(0, 200).replace(/#+\s*/g, '') + "...",
-        tags: `${blogStyle}, video analysis, ${analysis.channelName}`,
-        status: "draft" as const,
-        readingTime: Math.ceil(blogContent.split(' ').length / 200), // Assuming 200 words per minute
-        metadata: JSON.stringify({
-          sourceVideo: {
-            title: analysis.videoTitle,
-            channel: analysis.channelName,
-            url: analysis.videoUrl
-          },
-          generationSettings: {
-            style: blogStyle,
-            targetAudience,
-            includeImages
-          }
-        })
-      };
-
-      const blog = await storage.createYoutubeBlog(blogData);
-      
-      console.log(`[BLOG] Blog created successfully with ID: ${blog.id}`);
-
-      res.json({
-        success: true,
-        data: blog
-      });
-    } catch (error) {
-      console.error("[BLOG] Error generating blog:", error);
-      res.status(500).json({ 
-        error: "Failed to generate blog",
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
-
-  // Get blog for analysis
-  app.get("/api/youtube/:analysisId/blog", async (req, res) => {
-    try {
-      const { analysisId } = req.params;
-      
-      const analysisIdInt = parseInt(analysisId);
-      if (isNaN(analysisIdInt)) {
-        return res.status(400).json({ error: "Invalid analysis ID" });
-      }
-
-      const blog = await storage.getYoutubeBlog(analysisIdInt);
-      if (!blog) {
-        return res.status(404).json({ error: "Blog not found" });
-      }
-
-      res.json(blog);
-    } catch (error) {
-      console.error("Error fetching blog:", error);
-      res.status(500).json({ 
-        error: "Failed to fetch blog",
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
-
-  // Update blog
-  app.put("/api/youtube/:analysisId/blog", async (req, res) => {
-    try {
-      const { analysisId } = req.params;
-      const { title, content, excerpt, tags, status } = req.body;
-      
-      const analysisIdInt = parseInt(analysisId);
-      if (isNaN(analysisIdInt)) {
-        return res.status(400).json({ error: "Invalid analysis ID" });
-      }
-
-      const updateData = {
-        ...(title && { title }),
-        ...(content && { content }),
-        ...(excerpt && { excerpt }),
-        ...(tags && { tags }),
-        ...(status && { status })
-      };
-
-      const blog = await storage.updateYoutubeBlog(analysisIdInt, updateData);
-      if (!blog) {
-        return res.status(404).json({ error: "Blog not found" });
-      }
-
-      res.json(blog);
-    } catch (error) {
-      console.error("Error updating blog:", error);
-      res.status(500).json({ 
-        error: "Failed to update blog",
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
-
-  // Get all blogs for user
-  app.get("/api/youtube/blogs", async (req, res) => {
-    try {
-      const userId = 1; // TODO: Get from authenticated user
-      const { analysisId } = req.query;
-      
-      if (analysisId && analysisId !== 'null' && analysisId !== 'undefined') {
-        // Filter blogs by analysis ID
-        const analysisIdInt = parseInt(analysisId as string);
-        if (isNaN(analysisIdInt)) {
-          return res.status(400).json({ error: "Invalid analysis ID" });
-        }
-        
-        const allBlogs = await storage.getYoutubeBlogs(userId);
-        const filteredBlogs = allBlogs.filter(blog => blog.analysisId === analysisIdInt);
-        return res.json(filteredBlogs);
-      }
-      
-      const blogs = await storage.getYoutubeBlogs(userId);
-      res.json(blogs);
-    } catch (error) {
-      console.error("Error fetching blogs:", error);
-      res.status(500).json({ 
-        error: "Failed to fetch blogs",
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
     }
   });
 

@@ -917,7 +917,6 @@ export const youtubeQuestions = pgTable("youtube_questions", {
   question: text("question").notNull(),
   answer: text("answer").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-  metadata: text("metadata"), // JSON object
 });
 
 export const youtubeTranslations = pgTable("youtube_translations", {
@@ -927,21 +926,6 @@ export const youtubeTranslations = pgTable("youtube_translations", {
   languageName: text("language_name").notNull(),
   translatedTranscript: text("translated_transcript").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const youtubeBlogs = pgTable("youtube_blogs", {
-  id: serial("id").primaryKey(),
-  analysisId: integer("analysis_id").references(() => youtubeAnalyses.id),
-  title: text("title").notNull(),
-  slug: text("slug").notNull(),
-  content: text("content").notNull(),
-  excerpt: text("excerpt"),
-  tags: text("tags"),
-  status: text("status", { enum: ["draft", "published", "archived"] }).default("draft"),
-  readingTime: integer("reading_time"), // Minutes
-  metadata: text("metadata"), // JSON object with generation settings
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
 export const insertYoutubeAnalysisSchema = createInsertSchema(youtubeAnalyses).omit({
@@ -964,28 +948,11 @@ export const insertYoutubeTranslationSchema = createInsertSchema(youtubeTranslat
   createdAt: true,
 });
 
-export const insertYoutubeBlogSchema = createInsertSchema(youtubeBlogs).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const updateYoutubeBlogSchema = z.object({
-  title: z.string().optional(),
-  content: z.string().optional(),
-  excerpt: z.string().optional(),
-  tags: z.string().optional(),
-  status: z.enum(["draft", "published", "archived"]).optional(),
-});
-
 export type InsertYoutubeAnalysis = z.infer<typeof insertYoutubeAnalysisSchema>;
 export type InsertYoutubeChunk = z.infer<typeof insertYoutubeChunkSchema>;
 export type InsertYoutubeQuestion = z.infer<typeof insertYoutubeQuestionSchema>;
 export type InsertYoutubeTranslation = z.infer<typeof insertYoutubeTranslationSchema>;
-export type InsertYoutubeBlog = z.infer<typeof insertYoutubeBlogSchema>;
-export type UpdateYoutubeBlog = z.infer<typeof updateYoutubeBlogSchema>;
 export type YoutubeAnalysis = typeof youtubeAnalyses.$inferSelect;
 export type YoutubeChunk = typeof youtubeChunks.$inferSelect;
 export type YoutubeQuestion = typeof youtubeQuestions.$inferSelect;
 export type YoutubeTranslation = typeof youtubeTranslations.$inferSelect;
-export type YoutubeBlog = typeof youtubeBlogs.$inferSelect;

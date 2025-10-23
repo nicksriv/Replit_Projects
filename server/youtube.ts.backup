@@ -287,81 +287,6 @@ export async function analyzeYouTubeVideo(
   };
 }
 
-// Progress-aware version of analyzeYouTubeVideo
-export async function analyzeYouTubeVideoWithProgress(
-  url: string,
-  storage: any,
-  userId: number,
-  updateProgress: (progress: number, stage: string, message: string) => void
-): Promise<YouTubeAnalysisResult> {
-  updateProgress(20, 'extracting', 'Extracting video ID from URL...');
-  const videoId = await extractYouTubeVideoId(url);
-  
-  if (!videoId) {
-    throw new Error('Invalid YouTube URL');
-  }
-
-  updateProgress(30, 'fetching', 'Fetching video metadata and transcript...');
-  // Fetch metadata and transcript in parallel
-  const [metadata, transcript] = await Promise.all([
-    getVideoMetadata(videoId),
-    getYouTubeTranscript(videoId)
-  ]);
-  
-  if (!transcript || transcript.trim().length === 0) {
-    throw new Error('No transcript available for this video');
-  }
-
-  updateProgress(50, 'processing', 'Processing transcript...');
-  const { title: videoTitle, channelName } = metadata;
-  
-  updateProgress(60, 'storing', 'Saving analysis to database...');
-  const analysis = await storage.createYoutubeAnalysis({
-    videoId,
-    videoTitle,
-    channelName,
-    videoUrl: url,
-    transcript,
-  }, userId);
-
-  updateProgress(70, 'chunking', 'Creating text chunks and generating embeddings...');
-  const textChunks = chunkText(transcript, 500, 50);
-  
-  const chunksWithEmbeddings = await Promise.all(
-    textChunks.map(async (chunk, index) => {
-      // Update progress for each chunk
-      const chunkProgress = 70 + ((index + 1) / textChunks.length) * 20; // 70-90%
-      updateProgress(Math.round(chunkProgress), 'embedding', `Processing chunk ${index + 1}/${textChunks.length}...`);
-      
-      const embedding = await generateEmbedding(chunk);
-      
-      const savedChunk = await storage.createYoutubeChunk({
-        analysisId: analysis.id,
-        chunkIndex: index,
-        content: chunk,
-        embedding: JSON.stringify(embedding),
-      });
-      
-      return {
-        ...savedChunk,
-        embedding,
-      };
-    })
-  );
-
-  updateProgress(90, 'finalizing', 'Finalizing analysis...');
-
-  return {
-    analysisId: analysis.id,
-    videoId,
-    videoTitle,
-    channelName,
-    videoUrl: url,
-    transcript,
-    chunks: chunksWithEmbeddings,
-  };
-}
-
 export async function answerQuestion(
   analysisId: number,
   question: string,
@@ -375,36 +300,17 @@ export async function answerQuestion(
 
   const questionEmbedding = await generateEmbedding(question);
   
-  const chunksWithSimilarity = chunks.map((chunk: any) => {
-    try {
-      // Parse embedding from JSON string with error handling
-      const parsedEmbedding = typeof chunk.embedding === 'string' 
-        ? JSON.parse(chunk.embedding) 
-        : chunk.embedding;
-        
-      if (!Array.isArray(parsedEmbedding) || parsedEmbedding.length === 0) {
-        console.warn(`Invalid embedding for chunk ${chunk.id}`);
-        return null;
-      }
-      
-      return {
-        ...chunk,
-        embedding: parsedEmbedding,
-        similarity: cosineSimilarity(questionEmbedding, parsedEmbedding),
-      };
-    } catch (error) {
-      console.warn(`Failed to parse embedding for chunk ${chunk.id}:`, error);
-      return null;
-    }
-  }).filter((chunk: any) => chunk !== null);
+  const chunksWithSimilarity = chunks.map((chunk: any) => ({
+    ...chunk,
+    embedding: JSON.parse(chunk.embedding),
+    similarity: cosineSimilarity(questionEmbedding, JSON.parse(chunk.embedding)),
+  }));
 
   chunksWithSimilarity.sort((a: any, b: any) => b.similarity - a.similarity);
   
-  // Use adaptive threshold: take chunks with similarity > 0.3 or top 3, whichever is better
-  // This ensures we get relevant chunks while maintaining quality
-  const minSimilarityThreshold = 0.3;
-  const relevantChunks = chunksWithSimilarity.filter((chunk: any) => chunk.similarity >= minSimilarityThreshold);
-  const topChunks = relevantChunks.length > 0 ? relevantChunks.slice(0, 5) : chunksWithSimilarity.slice(0, 3);
+  // Take top 3 chunks - removed the 0.7 threshold as it was too restrictive
+  // Real queries typically score 0.45-0.6 similarity with lyrical content
+  const topChunks = chunksWithSimilarity.slice(0, 3);
 
   if (topChunks.length === 0) {
     return {

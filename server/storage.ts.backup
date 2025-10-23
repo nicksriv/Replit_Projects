@@ -83,8 +83,6 @@ import {
   youtubeAnalyses,
   youtubeChunks,
   youtubeQuestions,
-  youtubeTranslations,
-  youtubeBlogs,
   type LiveClass,
   type InsertLiveClass,
   type UpdateLiveClass,
@@ -96,12 +94,7 @@ import {
   type YoutubeChunk,
   type InsertYoutubeChunk,
   type YoutubeQuestion,
-  type InsertYoutubeQuestion,
-  type YoutubeTranslation,
-  type InsertYoutubeTranslation,
-  type YoutubeBlog,
-  type InsertYoutubeBlog,
-  type UpdateYoutubeBlog
+  type InsertYoutubeQuestion
 } from "@shared/schema";
 
 // modify the interface with any CRUD methods
@@ -280,12 +273,6 @@ export interface IStorage {
   getYoutubeTranslations(analysisId: number): Promise<YoutubeTranslation[]>;
   getYoutubeTranslation(analysisId: number, languageCode: string): Promise<YoutubeTranslation | undefined>;
   createYoutubeTranslation(translation: InsertYoutubeTranslation): Promise<YoutubeTranslation>;
-  
-  // Blog methods
-  getYoutubeBlogs(userId: number): Promise<YoutubeBlog[]>;
-  getYoutubeBlog(analysisId: number): Promise<YoutubeBlog | undefined>;
-  createYoutubeBlog(blog: InsertYoutubeBlog): Promise<YoutubeBlog>;
-  updateYoutubeBlog(analysisId: number, updates: UpdateYoutubeBlog): Promise<YoutubeBlog | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -318,7 +305,6 @@ export class MemStorage implements IStorage {
   private youtubeChunksMap: Map<number, YoutubeChunk>;
   private youtubeQuestionsMap: Map<number, YoutubeQuestion>;
   private youtubeTranslationsMap: Map<number, YoutubeTranslation>;
-  private youtubeBlogsMap: Map<number, YoutubeBlog>;
   private currentUserId: number;
   private currentCourseId: number;
   private currentRevenueId: number;
@@ -348,7 +334,6 @@ export class MemStorage implements IStorage {
   private currentYoutubeChunkId: number;
   private currentYoutubeQuestionId: number;
   private currentYoutubeTranslationId: number;
-  private currentYoutubeBlogId: number;
 
   constructor() {
     this.users = new Map();
@@ -380,7 +365,6 @@ export class MemStorage implements IStorage {
     this.youtubeChunksMap = new Map();
     this.youtubeQuestionsMap = new Map();
     this.youtubeTranslationsMap = new Map();
-    this.youtubeBlogsMap = new Map();
     this.currentUserId = 1;
     this.currentCourseId = 1;
     this.currentRevenueId = 1;
@@ -410,7 +394,6 @@ export class MemStorage implements IStorage {
     this.currentYoutubeChunkId = 1;
     this.currentYoutubeQuestionId = 1;
     this.currentYoutubeTranslationId = 1;
-    this.currentYoutubeBlogId = 1;
     
     // Add some sample data for demo
     this.seedSampleData();
@@ -671,70 +654,11 @@ export class MemStorage implements IStorage {
       this.studentSkillProgress.set(progress.id, progress);
     });
 
-    // Sample YouTube Analysis for testing blog generation
-    const sampleAnalysis: YoutubeAnalysis = {
-      id: 1,
-      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-      userId: 1,
-      videoId: "dQw4w9WgXcQ",
-      videoTitle: "How to Build a Modern Web Application with React and Node.js",
-      channelName: "TechEducator",
-      videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      transcript: "Welcome to this comprehensive tutorial on building modern web applications. In this video, we'll explore the fundamentals of React, including components, hooks, and state management. We'll also cover Node.js backend development, API design, and database integration. Throughout this tutorial, you'll learn best practices for building scalable, maintainable applications. First, let's start with setting up our React development environment. We'll use Create React App to bootstrap our project and then dive into component creation. React components are the building blocks of any React application, and understanding them is crucial for success. We'll explore both functional and class components, though we'll focus primarily on functional components with hooks. State management is another critical aspect we'll cover extensively. From local component state to context API and eventually more advanced patterns like Redux, you'll understand when and how to use each approach. On the backend side, we'll set up a robust Node.js server using Express.js framework. We'll implement RESTful APIs, handle authentication, and integrate with MongoDB for data persistence. Security considerations, error handling, and performance optimization will also be discussed. By the end of this tutorial, you'll have a solid foundation for building full-stack web applications and be ready to tackle more advanced topics in modern web development."
-    };
-
-    this.youtubeAnalysesMap.set(1, sampleAnalysis);
-
-    // Sample YouTube Chunks for RAG functionality
-    const sampleChunks = [
-      {
-        id: 1,
-        analysisId: 1,
-        chunkIndex: 0,
-        content: "Welcome to this comprehensive tutorial on building modern web applications. In this video, we'll explore the fundamentals of React, including components, hooks, and state management. We'll also cover Node.js backend development, API design, and database integration.",
-        embedding: JSON.stringify(Array(1536).fill(0).map(() => Math.random() * 0.1)) // Mock embedding for React fundamentals
-      },
-      {
-        id: 2,
-        analysisId: 1,
-        chunkIndex: 1,
-        content: "Throughout this tutorial, you'll learn best practices for building scalable, maintainable applications. First, let's start with setting up our React development environment. We'll use Create React App to bootstrap our project and then dive into component creation.",
-        embedding: JSON.stringify(Array(1536).fill(0).map(() => Math.random() * 0.1)) // Mock embedding for setup
-      },
-      {
-        id: 3,
-        analysisId: 1,
-        chunkIndex: 2,
-        content: "React components are the building blocks of any React application, and understanding them is crucial for success. We'll explore both functional and class components, though we'll focus primarily on functional components with hooks.",
-        embedding: JSON.stringify(Array(1536).fill(0).map(() => Math.random() * 0.1)) // Mock embedding for components
-      },
-      {
-        id: 4,
-        analysisId: 1,
-        chunkIndex: 3,
-        content: "State management is another critical aspect we'll cover extensively. From local component state to context API and eventually more advanced patterns like Redux, you'll understand when and how to use each approach.",
-        embedding: JSON.stringify(Array(1536).fill(0).map(() => Math.random() * 0.1)) // Mock embedding for state management
-      },
-      {
-        id: 5,
-        analysisId: 1,
-        chunkIndex: 4,
-        content: "On the backend side, we'll set up a robust Node.js server using Express.js framework. We'll implement RESTful APIs, handle authentication, and integrate with MongoDB for data persistence. Security considerations, error handling, and performance optimization will also be discussed.",
-        embedding: JSON.stringify(Array(1536).fill(0).map(() => Math.random() * 0.1)) // Mock embedding for backend
-      }
-    ];
-
-    sampleChunks.forEach(chunk => {
-      this.youtubeChunksMap.set(chunk.id, chunk);
-    });
-
     this.currentUserId = 5;
     this.currentEnrollmentId = 4;
     this.currentCommunicationId = 4;
     this.currentSkillId = 4;
     this.currentStudentSkillProgressId = 3;
-    this.currentYoutubeAnalysisId = 2; // Start from 2 since we have one sample
-    this.currentYoutubeChunkId = 6; // Start from 6 since we have 5 sample chunks
   }
 
   async getUser(id: number): Promise<User | undefined> {
@@ -1911,48 +1835,6 @@ export class MemStorage implements IStorage {
     };
     this.youtubeTranslationsMap.set(id, newTranslation);
     return newTranslation;
-  }
-
-  // Blog methods implementation
-  async getYoutubeBlogs(userId: number): Promise<YoutubeBlog[]> {
-    const userAnalyses = Array.from(this.youtubeAnalysesMap.values()).filter(a => a.userId === userId);
-    const analysisIds = userAnalyses.map(a => a.id);
-    
-    return Array.from(this.youtubeBlogsMap.values()).filter(blog => 
-      blog.analysisId !== null && analysisIds.includes(blog.analysisId)
-    );
-  }
-
-  async getYoutubeBlog(analysisId: number): Promise<YoutubeBlog | undefined> {
-    return Array.from(this.youtubeBlogsMap.values()).find(blog => blog.analysisId === analysisId);
-  }
-
-  async createYoutubeBlog(blog: InsertYoutubeBlog): Promise<YoutubeBlog> {
-    const id = this.currentYoutubeBlogId++;
-    const newBlog: YoutubeBlog = {
-      ...blog,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.youtubeBlogsMap.set(id, newBlog);
-    return newBlog;
-  }
-
-  async updateYoutubeBlog(analysisId: number, updates: UpdateYoutubeBlog): Promise<YoutubeBlog | undefined> {
-    const existingBlog = await this.getYoutubeBlog(analysisId);
-    if (!existingBlog) {
-      return undefined;
-    }
-
-    const updatedBlog: YoutubeBlog = {
-      ...existingBlog,
-      ...updates,
-      updatedAt: new Date(),
-    };
-    
-    this.youtubeBlogsMap.set(existingBlog.id, updatedBlog);
-    return updatedBlog;
   }
 }
 

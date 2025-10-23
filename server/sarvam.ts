@@ -33,7 +33,10 @@ export async function translateText(
 ): Promise<string> {
   const apiKey = process.env.SARVAM_API_KEY;
   
+  console.log(`[SARVAM] API Key configured: ${apiKey ? 'YES' : 'NO'}`);
+  
   if (!apiKey) {
+    console.error('[SARVAM] SARVAM_API_KEY environment variable is not configured');
     throw new Error('SARVAM_API_KEY is not configured');
   }
 

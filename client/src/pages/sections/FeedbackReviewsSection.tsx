@@ -1,5 +1,6 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { getFigmaAsset } from "@/lib/assets";
 
 export const FeedbackReviewsSection = (): JSX.Element => {
   const linkItems = [
@@ -28,7 +29,7 @@ export const FeedbackReviewsSection = (): JSX.Element => {
       <img
         className="absolute w-[165.55px] h-[126.99px] -top-[72px] -left-[136px] z-0"
         alt="Group"
-        src="/figmaAssets/group.png"
+        src={getFigmaAsset("group.png")}
       />
     </section>
   );

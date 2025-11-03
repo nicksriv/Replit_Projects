@@ -4,11 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getFigmaAsset } from "@/lib/assets";
 
 const courseData = [
   {
     id: 1,
-    image: "/figmaAssets/rectangle-18.png",
+    image: getFigmaAsset("rectangle-18.png"),
     status: "Draft",
     type: "AI",
     title: "Introduction to Digital Marketing",
@@ -19,7 +20,7 @@ const courseData = [
   },
   {
     id: 2,
-    image: "/figmaAssets/rectangle-18-1.png",
+    image: getFigmaAsset("rectangle-18-1.png"),
     status: "Draft",
     type: "Manual",
     title: "Advances UX Design Principles",
@@ -30,7 +31,7 @@ const courseData = [
   },
   {
     id: 3,
-    image: "/figmaAssets/rectangle-18-2.png",
+    image: getFigmaAsset("rectangle-18-2.png"),
     status: "Draft",
     type: "Manual",
     title: "Data Science Fundamentals",
@@ -45,19 +46,19 @@ const tabData = [
   {
     value: "video",
     label: "Video",
-    icon: "/figmaAssets/icon-21.svg",
+    icon: getFigmaAsset("icon-21.svg"),
     active: true,
   },
   {
     value: "in-progress",
     label: "In Progress",
-    icon: "/figmaAssets/icon-20.svg",
+    icon: getFigmaAsset("icon-20.svg"),
     active: false,
   },
   {
     value: "published",
     label: "Published",
-    icon: "/figmaAssets/icon-6.svg",
+    icon: getFigmaAsset("icon-6.svg"),
     active: false,
   },
 ];
@@ -100,7 +101,7 @@ export const SalesFunnelSection = (): JSX.Element => {
             <img
               className="relative self-stretch w-full h-px object-cover"
               alt="Divider"
-              src="/figmaAssets/divider.svg"
+              src={getFigmaAsset("divider.svg")}
             />
           </div>
         </Tabs>

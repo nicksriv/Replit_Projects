@@ -47,9 +47,11 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
-    const server = await registerRoutes(app);
+    // Create a sub-app for the YouTube AI application
+    const mainApp = express();
+    const server = await registerRoutes(mainApp);
 
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    mainApp.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
 
@@ -60,11 +62,19 @@ app.use((req, res, next) => {
     // importantly only setup vite in development and after
     // setting up all the other routes so the catch-all route
     // doesn't interfere with the other routes
-    if (app.get("env") === "development") {
-      await setupVite(app, server);
+    if (mainApp.get("env") === "development") {
+      await setupVite(mainApp, server);
     } else {
-      serveStatic(app);
+      serveStatic(mainApp);
     }
+
+    // Mount the main app at root level for subdomain deployment
+    app.use("/", mainApp);
+
+    // Health check at root level for server monitoring
+    app.get("/health", (req, res) => {
+      res.json({ status: "healthy", timestamp: new Date().toISOString() });
+    });
 
     // Use PORT environment variable for Autoscale deployments, fallback to 5001
     // this serves both the API and the client.
@@ -72,7 +82,7 @@ app.use((req, res, next) => {
     const port = parseInt(process.env.PORT as string) || 5001;
     server.listen({
       port,
-      host: "localhost",
+      host: "0.0.0.0",
     }, () => {
       log(`serving on port ${port}`);
     });

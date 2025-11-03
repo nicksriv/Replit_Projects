@@ -4,6 +4,7 @@ import { Link, useLocation } from "wouter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { getFigmaAsset } from "@/lib/assets";
 import { CourseOverviewSection } from "./sections/CourseOverviewSection";
 import { FeedbackReviewsSection } from "./sections/FeedbackReviewsSection";
 import { PerformanceSnapshotSection } from "./sections/PerformanceSnapshotSection";
@@ -58,7 +59,7 @@ export const ChloeMvpDash = (): JSX.Element => {
                   <img
                     className="w-6 h-6"
                     alt="Search filter icon"
-                    src="/figmaAssets/icon-12.svg"
+                    src={getFigmaAsset("icon-12.svg")}
                   />
                 </Button>
               </div>
@@ -72,7 +73,7 @@ export const ChloeMvpDash = (): JSX.Element => {
                     <img
                       className="w-6 h-6"
                       alt="Help icon"
-                      src="/figmaAssets/main-icons-12.svg"
+                      src={getFigmaAsset("main-icons-12.svg")}
                     />
                   </Button>
                 </Link>
@@ -97,7 +98,7 @@ export const ChloeMvpDash = (): JSX.Element => {
               </div>
               <Avatar className="w-[42px] h-[42px]" data-testid="avatar-user">
                 <AvatarImage
-                  src="/figmaAssets/ellipse-50.png"
+                  src={getFigmaAsset("ellipse-50.png")}
                   alt="User avatar"
                 />
                 <AvatarFallback>CU</AvatarFallback>
@@ -165,7 +166,7 @@ export const ChloeMvpDash = (): JSX.Element => {
             <img
               className="w-9 h-[37px] mx-auto mb-2"
               alt="GAIA AI assistant icon"
-              src="/figmaAssets/group-181.png"
+              src={getFigmaAsset("group-181.png")}
             />
             <div className="[font-family:'Manrope',Helvetica] font-bold text-white text-[29px] leading-[30px] mb-1.5">
               GAIA

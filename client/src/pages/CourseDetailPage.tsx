@@ -63,7 +63,9 @@ interface Course {
   };
 }
 
-export const CourseDetailPage = (): JSX.Element => {
+import { fetchApi } from "@/lib/api";
+
+export function CourseDetailPage() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
@@ -111,7 +113,7 @@ export const CourseDetailPage = (): JSX.Element => {
   // Export functionality
   const downloadExport = async (format: 'pdf' | 'scorm') => {
     try {
-      const response = await fetch(`/api/courses/${id}/export/${format}`);
+      const response = await fetchApi(`/api/courses/${id}/export/${format}`);
       
       if (!response.ok) {
         const error = await response.json();

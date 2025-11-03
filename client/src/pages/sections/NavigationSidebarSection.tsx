@@ -2,26 +2,27 @@ import React, { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { getFigmaAsset } from "@/lib/assets";
 
 const navigationItems = [
   {
     id: "create-course",
     label: "Create New Course",
-    icon: "/figmaAssets/selected-icon.svg",
+    icon: getFigmaAsset("selected-icon.svg"),
     isPrimary: true,
     route: "/courses/new",
   },
   {
     id: "dashboard",
     label: "Dashboard",
-    icon: "/figmaAssets/vector.svg",
+    icon: getFigmaAsset("vector.svg"),
     isPrimary: false,
     route: "/",
   },
   {
     id: "my-courses",
     label: "My Courses",
-    icon: "/figmaAssets/icon-9.svg",
+    icon: getFigmaAsset("icon-9.svg"),
     isPrimary: false,
     route: "/courses",
   },
@@ -31,43 +32,43 @@ const workspaceItems = [
   {
     id: "revenue-payouts",
     label: "Revenue & Payouts",
-    icon: "/figmaAssets/icon-8.svg",
+    icon: getFigmaAsset("icon-8.svg"),
     route: "/revenue",
   },
   {
     id: "learner-management",
     label: "Learner Management",
-    icon: "/figmaAssets/icon-13.svg",
+    icon: getFigmaAsset("icon-13.svg"),
     route: "/learners",
   },
   {
     id: "skills-management",
     label: "Skills Management",
-    icon: "/figmaAssets/icon-15.svg",
+    icon: getFigmaAsset("icon-15.svg"),
     route: "/skills",
   },
   {
     id: "live-classes",
     label: "Live Classes",
-    icon: "/figmaAssets/icon-9.svg",
+    icon: getFigmaAsset("icon-9.svg"),
     route: "/live-classes",
   },
   {
     id: "youtube-knowledge",
     label: "YouTube Knowledge",
-    icon: "/figmaAssets/icon-15.svg",
+    icon: getFigmaAsset("icon-15.svg"),
     route: "/youtube-knowledge",
   },
   {
     id: "reports",
     label: "Reports",
-    icon: "/figmaAssets/icon-16.svg",
+    icon: getFigmaAsset("icon-16.svg"),
     route: "/reports",
   },
   {
     id: "marketing",
     label: "Marketing",
-    icon: "/figmaAssets/vector-1.svg",
+    icon: getFigmaAsset("vector-1.svg"),
     route: "/marketing",
   },
 ];
@@ -76,13 +77,13 @@ const bottomItems = [
   {
     id: "settings",
     label: "Settings",
-    icon: "/figmaAssets/icon-17.svg",
+    icon: getFigmaAsset("icon-17.svg"),
     route: "/settings",
   },
   {
     id: "help-support",
     label: "Help & Support",
-    icon: "/figmaAssets/icon-14.svg",
+    icon: getFigmaAsset("icon-14.svg"),
     route: "/help",
   },
 ];
@@ -102,7 +103,7 @@ export const NavigationSidebarSection = (): JSX.Element => {
                   <img
                     className={`relative h-[30px] transition-all duration-300 ${isCollapsed ? 'w-8' : 'w-40'}`}
                     alt="Vertx logo blue"
-                    src="/figmaAssets/vertx-logo--blue--5.png"
+                    src={getFigmaAsset("vertx-logo--blue--5.png")}
                   />
                 </div>
                 <div className="relative self-stretch w-full h-6 bg-white" />
@@ -268,7 +269,7 @@ export const NavigationSidebarSection = (): JSX.Element => {
               <img
                 className="relative flex-[0_0_auto]"
                 alt="Collapse icon"
-                src="/figmaAssets/icon-18.svg"
+                src={getFigmaAsset("icon-18.svg")}
               />
               {!isCollapsed && (
                 <span className="font-label-label-2-medium text-solid-coloraccenta2 text-[length:var(--label-label-2-medium-font-size)] text-center tracking-[var(--label-label-2-medium-letter-spacing)] leading-[var(--label-label-2-medium-line-height)] relative flex items-center justify-center w-fit font-[number:var(--label-label-2-medium-font-weight)] whitespace-nowrap [font-style:var(--label-label-2-medium-font-style)]">

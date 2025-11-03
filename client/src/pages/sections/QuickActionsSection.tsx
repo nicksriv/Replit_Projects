@@ -1,19 +1,20 @@
 import React from "react";
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
+import { getFigmaAsset } from "@/lib/assets";
 
 export const QuickActionsSection = (): JSX.Element => {
   const quickActions = [
     {
       title: "Create New Course",
-      icon: "/figmaAssets/main-icons-11.svg",
+      icon: getFigmaAsset("main-icons-11.svg"),
       isPrimary: true,
       className: "bg-solid-colorprimary text-text-colorwhite",
       route: "/courses/new",
     },
     {
       title: "Add New User",
-      icon: "/figmaAssets/main-icons-5.svg",
+      icon: getFigmaAsset("main-icons-5.svg"),
       isPrimary: false,
       className:
         "bg-text-colorwhite text-text-colorvery-dark border border-solid border-[#7e86c1]",
@@ -21,7 +22,7 @@ export const QuickActionsSection = (): JSX.Element => {
     },
     {
       title: "Schedule Live Session",
-      icon: "/figmaAssets/main-icons-9.svg",
+      icon: getFigmaAsset("main-icons-9.svg"),
       isPrimary: false,
       className:
         "bg-text-colorwhite text-text-colorvery-dark border border-solid border-[#7e86c1]",
@@ -29,7 +30,7 @@ export const QuickActionsSection = (): JSX.Element => {
     },
     {
       title: "Launch Coupon",
-      icon: "/figmaAssets/main-icons-4.svg",
+      icon: getFigmaAsset("main-icons-4.svg"),
       isPrimary: false,
       className:
         "bg-text-colorwhite text-text-colorvery-dark border border-solid border-[#7e86c1]",

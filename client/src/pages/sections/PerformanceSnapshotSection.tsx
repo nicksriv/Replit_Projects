@@ -1,12 +1,13 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { getFigmaAsset } from "@/lib/assets";
 
 export const PerformanceSnapshotSection = (): JSX.Element => {
   const performanceData = [
     {
       label: "Revenue Today",
       value: "$58.50",
-      icon: "/figmaAssets/icon.png",
+      icon: getFigmaAsset("icon.png"),
       background:
         "bg-[linear-gradient(0deg,rgba(187,241,212,0.3)_0%,rgba(187,241,212,0.3)_100%),linear-gradient(0deg,rgba(255,255,255,0.5)_0%,rgba(255,255,255,0.5)_100%)]",
       labelWidth: "w-[114px]",
@@ -15,7 +16,7 @@ export const PerformanceSnapshotSection = (): JSX.Element => {
     {
       label: "New Enrolments(24h)",
       value: "12",
-      icon: "/figmaAssets/icon-1.png",
+      icon: getFigmaAsset("icon-1.png"),
       background:
         "bg-[linear-gradient(0deg,rgba(207,207,255,0.3)_0%,rgba(207,207,255,0.3)_100%),linear-gradient(0deg,rgba(255,255,255,0.5)_0%,rgba(255,255,255,0.5)_100%)]",
       labelWidth: "w-[123px]",
@@ -25,7 +26,7 @@ export const PerformanceSnapshotSection = (): JSX.Element => {
     {
       label: "Active Learners",
       value: "341",
-      icon: "/figmaAssets/icon-2.png",
+      icon: getFigmaAsset("icon-2.png"),
       background: "bg-solid-coloractionlight-orange",
       labelWidth: "w-[123px]",
       gap: "gap-1",
@@ -33,7 +34,7 @@ export const PerformanceSnapshotSection = (): JSX.Element => {
     {
       label: "Avg Course Rating",
       value: "4.8/5",
-      icon: "/figmaAssets/icon-3.png",
+      icon: getFigmaAsset("icon-3.png"),
       background:
         "bg-[linear-gradient(0deg,rgba(253,232,182,0.3)_0%,rgba(253,232,182,0.3)_100%),linear-gradient(0deg,rgba(255,255,255,0.5)_0%,rgba(255,255,255,0.5)_100%)]",
       labelWidth: "w-[123px]",
@@ -82,7 +83,7 @@ export const PerformanceSnapshotSection = (): JSX.Element => {
               <img
                 className="absolute top-2 left-[218px] w-[18px] h-[18px]"
                 alt="Main icons"
-                src="/figmaAssets/main-icons-3.svg"
+                src={getFigmaAsset("main-icons-3.svg")}
               />
             </CardContent>
           </Card>

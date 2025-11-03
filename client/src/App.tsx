@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Router } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -20,30 +20,35 @@ import HelpSupport from "@/pages/HelpSupport";
 import { LiveClassesPage } from "@/pages/LiveClassesPage";
 import YoutubeKnowledgePage from "@/pages/YoutubeKnowledgePage";
 
-function Router() {
+// Base path configuration for subdirectory deployment
+const BASE_PATH = "";
+
+function AppRouter() {
   return (
-    <Layout>
-      <Switch>
-        {/* Add pages below */}
-        <Route path="/" component={ChloeMvpDash} />
-        <Route path="/search" component={() => <div data-testid="page-search">Search Results - Coming Soon</div>} />
-        <Route path="/courses/new" component={CreateCoursePage} />
-        <Route path="/courses/:id/edit" component={() => <div data-testid="page-edit-course">Edit Course - Coming Soon</div>} />
-        <Route path="/courses/:id" component={CourseDetailPage} />
-        <Route path="/courses" component={MyCourses} />
-        <Route path="/revenue" component={RevenueAndPayouts} />
-        <Route path="/learners" component={LearnerManagement} />
-        <Route path="/skills" component={SkillsManagement} />
-        <Route path="/live-classes" component={LiveClassesPage} />
-        <Route path="/youtube-knowledge" component={YoutubeKnowledgePage} />
-        <Route path="/reports" component={Reports} />
-        <Route path="/marketing" component={Marketing} />
-        <Route path="/settings" component={Settings} />
-        <Route path="/help" component={HelpSupport} />
-        {/* Fallback to 404 */}
-        <Route component={NotFound} />
-      </Switch>
-    </Layout>
+    <Router base={BASE_PATH}>
+      <Layout>
+        <Switch>
+          {/* Add pages below */}
+          <Route path="/" component={ChloeMvpDash} />
+          <Route path="/search" component={() => <div data-testid="page-search">Search Results - Coming Soon</div>} />
+          <Route path="/courses/new" component={CreateCoursePage} />
+          <Route path="/courses/:id/edit" component={() => <div data-testid="page-edit-course">Edit Course - Coming Soon</div>} />
+          <Route path="/courses/:id" component={CourseDetailPage} />
+          <Route path="/courses" component={MyCourses} />
+          <Route path="/revenue" component={RevenueAndPayouts} />
+          <Route path="/learners" component={LearnerManagement} />
+          <Route path="/skills" component={SkillsManagement} />
+          <Route path="/live-classes" component={LiveClassesPage} />
+          <Route path="/youtube-knowledge" component={YoutubeKnowledgePage} />
+          <Route path="/reports" component={Reports} />
+          <Route path="/marketing" component={Marketing} />
+          <Route path="/settings" component={Settings} />
+          <Route path="/help" component={HelpSupport} />
+          {/* Fallback to 404 */}
+          <Route component={NotFound} />
+        </Switch>
+      </Layout>
+    </Router>
   );
 }
 
@@ -52,7 +57,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Router />
+        <AppRouter />
       </TooltipProvider>
     </QueryClientProvider>
   );

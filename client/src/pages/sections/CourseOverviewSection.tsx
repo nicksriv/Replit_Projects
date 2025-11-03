@@ -2,6 +2,7 @@ import { HeartIcon, ReplyIcon } from "lucide-react";
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { getFigmaAsset } from "@/lib/assets";
 
 export const CourseOverviewSection = (): JSX.Element => {
   const reviewsData = [
@@ -9,19 +10,19 @@ export const CourseOverviewSection = (): JSX.Element => {
       id: 1,
       quote: "This was a fantastic overview!",
       course: "on introduction to Digital marketing",
-      ratingImage: "/figmaAssets/group-177.png",
+      ratingImage: getFigmaAsset("group-177.png"),
     },
     {
       id: 2,
       quote: "This was a fantastic overview!",
       course: "on introduction to Digital marketing",
-      ratingImage: "/figmaAssets/group-177-1.png",
+      ratingImage: getFigmaAsset("group-177-1.png"),
     },
     {
       id: 3,
       quote: "This was a fantastic overview!",
       course: "on introduction to Digital marketing",
-      ratingImage: "/figmaAssets/group-177-2.png",
+      ratingImage: getFigmaAsset("group-177-2.png"),
     },
   ];
 
